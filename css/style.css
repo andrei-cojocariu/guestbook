@@ -7564,13 +7564,10 @@ body.error .wrapper .buttons {
   margin-bottom: 20px;
 }
 .grids .row [class*="col-"] {
-  background: #ccc;
-  border: 1px solid #888;
   text-align: center;
   line-height: 30px;
 }
 .grids .row [class*="col-"]:hover {
-  background: #aaa;
 }
 
 .the-icons {
@@ -7703,9 +7700,9 @@ body.error .wrapper .buttons {
   background: #368ee0;
 }
 .login .wrapper {
-  width: 400px;
+  width: 800px;
   height: 500px;
-  margin: -200px -200px;
+  margin: -400px -400px;
   position: absolute;
   left: 50%;
   top: 50%;
