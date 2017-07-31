@@ -10,26 +10,34 @@
     <div class="box-content nopadding">
 
         <ul class="timeline">
+            
+<?php foreach ($messages as $message): ?>       
+            
             <li>
                 <div class="timeline-content">
                     <div class="left">
                         <div class="icon green">
                             <i class="fa fa-comment"></i>
                         </div>
-                        <div class="date">18/02/2015</div>
+                        <div class="date">
+                            <?php echo date('d-m-y', time($message['received_on'])); ?><br>
+                            <?php echo date('h:i a', time($message['received_on'])); ?>
+                        </div>   
                     </div>
                     <div class="activity">
                         <div class="user">
-                            <a href="#">John Doe</a>
-                            <span>added a new comment</span>
+                            <a href="#"><?php echo $message['name']; ?></a>
+                            <span>(<?php echo $message['email']; ?>)</span>
                         </div>
                         <p>
-                            Lorem ipsum Fugiat magna velit consectetur qui in veniam cillum exercitation Ut occaecat Duis mollit. Lorem ipsum Dolore dolor Excepteur sunt amet officia officia sunt aliquip id occaecat officia.
+                            <?php echo $message['message']; ?>
                         </p>
                     </div>
                 </div>
                 <div class="line"></div>
             </li>
+            
+<?php endforeach; ?>
         </ul>
     </div>
 </div> 
