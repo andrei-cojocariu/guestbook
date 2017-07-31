@@ -20,9 +20,8 @@
             
 <?php $this->load->view('guestbook_components/form'); ?>
             
-            <h2></h2>
-
-
+<?php $this->load->view('guestbook_components/timeline'); ?>            
+                  
         </div>
     </div>
 	<script type="text/javascript">

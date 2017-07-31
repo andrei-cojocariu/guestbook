@@ -3,7 +3,7 @@
 
 <div class="grids">
 
-    <form action="<?php echo site_url(); ?>" method='get' class='form-validate' id="test">
+    <form action="<?php echo site_url(); ?>" method='POST' class='form-validate' id="test">
 
         <div class="row"> 
 
