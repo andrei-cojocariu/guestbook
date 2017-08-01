@@ -22,10 +22,12 @@ class Guestbook extends CI_Controller
 
         $data['valid'] = false;
 
+        // Set up validation rules and prepare/sanitaze posted data
         $this->form_validation->set_rules('name', 'Name', 'trim|required|min_length[3]|xss_clean|strip_tags');
         $this->form_validation->set_rules('email', 'Email', 'trim|required|valid_email|xss_clean|strip_tags');
         $this->form_validation->set_rules('message', 'Message', 'trim|required|min_length[5]|xss_clean|strip_tags');
 
+        //Determine if data is valid or not
         if ($this->form_validation->run() === false) {
             $this->form_validation->set_error_delimiters('<span id="textfield-error" class="help-block has-error">', '</span>');
         } else {
@@ -35,5 +37,4 @@ class Guestbook extends CI_Controller
         $data['messages'] = $this->guestbook_messages->get_messages();
         $this->load->view('guestbook_homepage', $data);
     }
-
 }

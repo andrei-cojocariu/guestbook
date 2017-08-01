@@ -19,8 +19,15 @@
         <div class="login-body">
             
 <?php $this->load->view('guestbook_components/form'); ?>
-            
-<?php $this->load->view('guestbook_components/timeline'); ?>            
+         
+<?php 
+// No need to display Timeline section if no data has yet been posted
+    if ($messages) {
+        $this->load->view('guestbook_components/timeline'); 
+    } else {
+        echo '<br>'; 
+    }
+?>            
                   
         </div>
     </div>
