@@ -1,0 +1,71 @@
+# Phase 1 — Cryogenic Freeze (tsk-002).
+#
+# Wires the exact legacy pair the app already assumes: PHP 5.6 (mysqli,
+# mbstring, mod_rewrite) talking to MySQL 5.7 over `localhost`
+# (application/config/database.php:78 'hostname' => 'localhost'). To honor
+# that hardcoded hostname WITHOUT touching product code, two things reproduce
+# the original same-host (XAMPP-style) topology the source was written
+# against, purely at the infra layer:
+#   1. `app` shares `db`'s network namespace (`network_mode: "service:db"`).
+#   2. mysqli treats the literal string "localhost" as "connect via local
+#      Unix socket", never TCP, regardless of network namespace — a
+#      long-standing mysqli/libmysqlclient behavior, not a bug here. So `app`
+#      and `db` also share a volume at `/var/run/mysqld`, the socket path
+#      both the Debian `mysql:5.7` image and PHP's mysqli default agree on,
+#      exactly as they would sitting on the same real host.
+#
+# Credentials below mirror application/config/database.php verbatim
+# (root / Start123! / guestbook) — this is a deliberate freeze of the
+# existing (already-committed, already-logged) credential, not a new leak.
+# See .ptah/audit/legacy_debt.md SEC-2; externalizing it is tsk-004's job,
+# not this task's.
+services:
+  db:
+    image: mysql:5.7.44
+    container_name: guestbook-frozen-db
+    environment:
+      MYSQL_ROOT_PASSWORD: "Start123!"
+      MYSQL_DATABASE: guestbook
+    volumes:
+      # tsk-001 artifact: forward-only, idempotent DDL seeded on first boot
+      # so the container always comes up with the correctly-shaped, empty
+      # `messages` table.
+      - ./schema/messages.sql:/docker-entrypoint-initdb.d/01-messages.sql:ro
+      # Shared with `app` so mysqli's Unix-socket connection for hostname
+      # "localhost" (application/config/database.php:78) actually finds
+      # mysqld's socket — see header note 2.
+      - mysqld-socket:/var/run/mysqld
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pStart123!"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    # Published so a host-side characterization run (tsk-003) or manual
+    # inspection can reach both services. Host-side ports are offset
+    # (13306/8080) to avoid colliding with a host-local MySQL/XAMPP already
+    # bound to 3306; the container-internal ports (3306, 80) are untouched.
+    ports:
+      - "13306:3306"
+      - "8080:80"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ci-guestbook:frozen
+    container_name: guestbook-frozen-app
+    depends_on:
+      db:
+        condition: service_healthy
+    # Shares db's network namespace so the app's hardcoded `localhost`
+    # MySQL hostname resolves to db's mysqld — see header note. Because of
+    # this, `app` must not declare its own `ports`/`networks` (Compose
+    # forbids combining those with network_mode: service:*); port 8080 above
+    # is published from the `db` service definition instead.
+    network_mode: "service:db"
+    working_dir: /var/www/html
+    volumes:
+      - mysqld-socket:/var/run/mysqld
+
+volumes:
+  mysqld-socket:

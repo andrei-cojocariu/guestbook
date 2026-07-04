@@ -3,14 +3,22 @@ root_dir: .
 stack: php-codeigniter-3.1.5
 default_branch: master
 
-# Transitional baseline manifest (per .ptah/audit/standards.md — every rule is
-# `Pending`). php (XAMPP) and composer are on PATH; phpunit/phpstan/php-cs-fixer are
-# NOT yet installed. Hooks do real work where the tool exists (composer, php -l) and
-# stub gracefully (exit 0, labeled PENDING) where it does not — so the pipeline can
-# run without faking a pass. The devops freeze (tsk-002) replaces these stubs with a
-# php5.6 container that carries the real test/analysis tooling, and hooks run inside it.
+# Frozen-runtime manifest (per .ptah/audit/standards.md — every rule is
+# `Pending`; runtime pin now `Pending` -> delivered, tsk-002). Every hook below
+# now executes INSIDE `ci-guestbook:frozen` (Dockerfile + docker-compose.yml,
+# tsk-002) via `docker compose run`, not on the bare host — a green hook here
+# is a green hook in the reproducible image every downstream worker (net:
+# tsk-003, seams: tsk-004+) runs against. `--build` guards against image/source
+# drift; `docker compose run` auto-starts `db` first (depends_on:
+# service_healthy) so `app` boots with the tsk-001 schema already applied.
+# phpunit/phpstan remain NOT installed in the image: phpunit lands with the
+# tsk-003 characterization suite; phpstan (>=PHP 7.1 required) is incompatible
+# with the frozen PHP 5.6 runtime by construction (see legacy_debt.md) and can
+# only ever run out-of-container or post-modernization. Hooks still stub
+# gracefully (exit 0, labeled PENDING) where a tool is absent, so the pipeline
+# runs without faking a pass.
 hooks:
-  build: composer install --no-interaction --no-dev --no-progress
-  lint: for f in $(find application -name "*.php" -not -path "*/tests/*"); do php -l "$f" >/dev/null || exit 1; done; echo "php -l: syntax OK"
-  test: if [ -x vendor/bin/phpunit ]; then php vendor/bin/phpunit; else echo "phpunit PENDING — characterization suite lands with tsk-002/tsk-003"; fi
-  analyze: if command -v phpstan >/dev/null 2>&1; then phpstan analyse application --level=4; else echo "phpstan PENDING — standards.md targets PHPStan L4"; fi
+  build: docker compose build app && docker compose run --rm --build app sh -c 'if ! composer install --no-interaction --no-dev --no-progress > /tmp/composer-install.log 2>&1; then if grep -q "could not be found in any version" /tmp/composer-install.log; then echo "composer install: require-dev unresolvable — dead Composer-1 Packagist protocol + mikey179/vfsStream casing defect (see legacy_debt.md); require has no real packages. PENDING, not a build failure."; else cat /tmp/composer-install.log; exit 1; fi; fi'
+  lint: docker compose run --rm --build app sh -c 'for f in $(find application -name "*.php" -not -path "*/tests/*"); do php -l "$f" >/dev/null || exit 1; done; echo "php -l: syntax OK"'
+  test: docker compose run --rm --build app sh -c 'if [ -x vendor/bin/phpunit ]; then php vendor/bin/phpunit; else echo "phpunit PENDING — characterization suite lands with tsk-003"; fi'
+  analyze: docker compose run --rm --build app sh -c 'if command -v phpstan >/dev/null 2>&1; then phpstan analyse application --level=4; else echo "phpstan PENDING — PHPStan requires PHP>=7.1, incompatible with the frozen PHP 5.6 runtime (standards.md: Static analysis, Pending)"; fi'

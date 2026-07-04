@@ -1,0 +1,11 @@
+# Phase 1 freeze image (tsk-002): keep the build context to what the frozen
+# runtime needs. `system/` (CI framework) stays — it is required at runtime.
+.git
+.ptah
+nbproject
+user_guide
+vendor
+composer.lock
+*.log
+ptah-debug.log
+.DS_Store

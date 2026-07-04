@@ -151,6 +151,69 @@ and line. Severity reflects blast radius on a live deployment.
   in the fallowing form"). Low risk, high visibility.
 - **Anchor** — `#minor-polish`.
 
+## DevOps / package audit — discovered building the frozen runtime (tsk-002)
+
+### DEBT-7 Composer manifest is unresolvable on every Composer major version
+
+- **Where** — `composer.json` `require-dev`: `"mikey179/vfsStream": "1.1.*"`
+  (invalid casing — the real package is `mikey179/vfsstream`, lowercase) and
+  `"phpunit/phpunit": "4.* || 5.*"`.
+- **What** — verified live while building `ci-guestbook:frozen`
+  (`php:5.6.40-apache` + `composer:1.10.26`, the only Composer major that can
+  even run under this frozen PHP floor — Composer 2.3+ requires PHP >=
+  7.2.5):
+  - **Composer 1.x**: only warns on the `vfsStream` casing, but Packagist
+    shut down the legacy Composer-1 metadata protocol on 2025-09-01, so
+    neither `mikey179/vfsstream` nor `phpunit/phpunit` resolves at all —
+    "could not be found in any version" for both.
+  - **Composer 2.x**: hard-errors on the casing before any network call
+    (`RootPackageLoader`), independent of the dead-mirror issue.
+  - No `composer.lock` exists, and Composer's own resolver forces a full
+    `require` + `require-dev` solve on first `install`/`update` **even with
+    `--no-dev`** ("Running update with `--no-dev` does not mean require-dev
+    is ignored, it just means the packages will not be installed" — Composer's
+    own message) — so there is no flag-only way around this.
+- **Impact** — `require` itself has zero real packages (only the `php`
+  platform floor), so the product has nothing to install today. But this
+  blocks **any** future `composer install`/`update` from ever installing
+  `phpunit` inside this frozen image via the declared `require-dev` — which
+  directly blocks **tsk-003** (characterization net) from installing PHPUnit
+  through Composer inside `ci-guestbook:frozen`, on either legacy or modern
+  Composer. `hooks.build` (`.ptah/ptah.yaml`) is written to treat this
+  specific, already-diagnosed failure as `PENDING` (not a build failure) —
+  it does not silently swap or vendor a fix for the dependency itself.
+- **Fix** — (1) correct the casing to `mikey179/vfsstream`; (2) since
+  Packagist's Composer-1 protocol is permanently gone, `tsk-003`/a
+  dependency-manifest chore must either commit a `composer.lock` generated
+  once against Composer 2 (from a modern-PHP stage, then consumed by
+  Composer 1 at install time) or install PHPUnit as a container-level pinned
+  binary instead of a Composer dependency. This is a manifest content fix —
+  out of this task's IaC-only scope; scheduling it is the
+  product-owner-worker's call.
+- **Anchor** — `#composer-manifest-unresolvable`.
+
+### DEBT-8 tsk-001's static gate script uses PHP 7+ syntax, cannot execute under the frozen PHP 5.6 interpreter
+
+- **Where** — `application/tests/schema/MessagesSchemaProvisioningTest.php:136`
+  — `$setMessageBody = $m[1] ?? '';` uses the null-coalescing operator
+  (`??`), added in PHP 7.0. Running it with the frozen runtime's `php` (5.6.40,
+  inside `ci-guestbook:frozen`) fails immediately: `Parse error: syntax
+  error, unexpected '?'`.
+- **Impact** — this script was evidently authored/validated against a modern
+  host PHP (the audit trail records it as passing "3 passed / 0 failed / 1
+  deferred" — that run was not against PHP 5.6). It is **not** wired into
+  `.ptah/ptah.yaml` hooks today (`hooks.test` only probes `vendor/bin/phpunit`,
+  unaffected), so it does not block this task's TAC — but it is direct,
+  concrete evidence that **any characterization tooling for tsk-003 must
+  either (a) stay strictly PHP-5.6-syntax-compatible if it is meant to
+  execute via the container's own `php` interpreter, or (b) run black-box
+  from outside the container** (HTTP requests against the published port,
+  e.g. from a modern-PHP/PHPUnit runner on the host or in a separate
+  container) rather than being included/executed by the frozen PHP 5.6 CLI
+  directly. The latter also sidesteps DEBT-7 (PHPUnit unresolvable via
+  Composer inside the frozen image).
+- **Anchor** — `#tsk001-script-php7-syntax`.
+
 ## Dead / unused code
 
 ### ~~DEAD-1 Stock CI Welcome demo, unreachable~~ — RESOLVED by `tsk-010`
