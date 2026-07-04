@@ -4,7 +4,7 @@ title: Provision the messages table schema for the frozen environment
 type: chore
 priority: P0-Critical
 severity: high
-status: pending
+status: done
 depends_on: []
 rejection_count: 0
 source: audit/legacy_debt.md#no-reproducible-env

@@ -4,9 +4,9 @@ title: Freeze the legacy runtime in a reproducible container
 type: chore
 priority: P0-Critical
 severity: medium
-status: blocked
+status: audit-failed
 depends_on: [tsk-001]
-rejection_count: 0
+rejection_count: 1
 source: audit/legacy_debt.md#no-reproducible-env
 branch: chore/tsk-002
 ---
