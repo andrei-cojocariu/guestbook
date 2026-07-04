@@ -73,16 +73,40 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 $active_group = 'default';
 $query_builder = TRUE;
 
+/*
+| -------------------------------------------------------------------
+| SECRET SOURCING (SEC-2, SEC-5 -- see .ptah/audit/legacy_debt.md)
+| -------------------------------------------------------------------
+| Credentials are read exclusively from the environment via getenv().
+| 'hostname'/'database' fall back to the frozen container's local-dev
+| topology (docker-compose.yml, tsk-002) -- neither value is a secret.
+| 'username'/'password' fall back to a non-secret, non-functional local
+| default ('root' / an empty password) ONLY for local dev convenience;
+| they never fall back to the credential that used to be committed here
+| (see git history) -- that literal has been purged from source and is
+| not reachable through any code path in this file.
+*/
+$db_hostname = getenv('DB_HOSTNAME');
+$db_username = getenv('DB_USERNAME');
+$db_password = getenv('DB_PASSWORD');
+$db_database = getenv('DB_DATABASE');
+
 $db['default'] = array(
 	'dsn'	=> '',
-	'hostname' => 'localhost',
-	'username' => 'root',
-	'password' => 'Start123!',
-	'database' => 'guestbook',
+	'hostname' => ($db_hostname !== FALSE && $db_hostname !== '') ? $db_hostname : 'localhost',
+	'username' => ($db_username !== FALSE && $db_username !== '') ? $db_username : 'root',
+	'password' => ($db_password !== FALSE) ? $db_password : '',
+	'database' => ($db_database !== FALSE && $db_database !== '') ? $db_database : 'guestbook',
 	'dbdriver' => 'mysqli',
 	'dbprefix' => '',
 	'pconnect' => FALSE,
-	'db_debug' => (ENVIRONMENT !== 'production'),
+	// Fail closed by default: db_debug is only ever TRUE in the explicit
+	// 'development' environment (index.php sets ENVIRONMENT from CI_ENV,
+	// defaulting to 'development' when unset). Every other value --
+	// 'testing', 'production', or anything else -- resolves FALSE, so no
+	// SQL error detail reaches the client unless a developer opts in
+	// (`#db-debug-leak`).
+	'db_debug' => (ENVIRONMENT === 'development'),
 	'cache_on' => FALSE,
 	'cachedir' => '',
 	'char_set' => 'utf8',

@@ -12,11 +12,18 @@ Global CodeIgniter application configuration.
 
 ## Notes / debt
 
-- `#hardcoded-encryption-key` (CRITICAL) — static `encryption_key` at line 327.
-- `#csrf-disabled` (CRITICAL) — `csrf_protection = FALSE` at line 451; the
-  guestbook form is an unprotected state-changing POST.
+- **Resolved (`tsk-004`)** — `#hardcoded-encryption-key`: the static
+  `encryption_key` literal is purged. Sourced via `getenv('ENCRYPTION_KEY')`,
+  falling back to an empty string (never to the former committed key, which
+  is not reachable through any code path in this file) when unset. The
+  `Encryption`/`Encrypt` libraries are not loaded anywhere in
+  `application/` today, so an unset key does not affect current app
+  behavior; it only matters if/when that library is adopted.
+- `#csrf-disabled` (CRITICAL, unchanged — out of `tsk-004` scope) —
+  `csrf_protection = FALSE` at line 451; the guestbook form is an
+  unprotected state-changing POST.
 - `base_url` is hardcoded to `http://localhost/guestbook` (line 26); non-portable
-  across environments.
+  across environments (unchanged — out of `tsk-004` scope).
 
 ## Blast radius
 

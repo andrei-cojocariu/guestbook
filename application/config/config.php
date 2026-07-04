@@ -323,8 +323,14 @@ $config['cache_query_string'] = FALSE;
 |
 | https://codeigniter.com/user_guide/libraries/encryption.html
 |
+| Sourced exclusively from the environment (SEC-3 --
+| .ptah/audit/legacy_debt.md#hardcoded-encryption-key). The literal key
+| that used to be committed here has been purged from source and is not
+| reachable through any code path in this file; when ENCRYPTION_KEY is
+| unset this resolves to an empty string, never to that former secret.
 */
-$config['encryption_key'] = 'tVZo79a2gxgfYJsOIf5W8aBccrDHNq7m';
+$encryption_key = getenv('ENCRYPTION_KEY');
+$config['encryption_key'] = ($encryption_key !== FALSE) ? $encryption_key : '';
 
 /*
 |--------------------------------------------------------------------------
