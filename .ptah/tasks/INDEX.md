@@ -18,7 +18,7 @@ through `depends_on`.
 | tsk-001 | chore | P0-Critical | high | done | — |
 | tsk-002 | chore | P0-Critical | medium | done | tsk-001 |
 | tsk-003 | stabilize | P0-Critical | high | active | tsk-002 |
-| tsk-004 | chore | P0-Critical | high | pending | tsk-002 |
+| tsk-004 | chore | P0-Critical | high | audit-failed | tsk-002 |
 | tsk-005 | decouple | P0-Critical | high | blocked | tsk-003 |
 | tsk-006 | chore | P0-Critical | high | blocked | tsk-003 |
 | tsk-007 | decouple | P2-Debt | medium | blocked | tsk-003 |
