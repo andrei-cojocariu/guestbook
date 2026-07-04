@@ -4,7 +4,7 @@ title: Freeze the legacy runtime in a reproducible container
 type: chore
 priority: P0-Critical
 severity: medium
-status: audit-failed
+status: done
 depends_on: [tsk-001]
 rejection_count: 1
 source: audit/legacy_debt.md#no-reproducible-env
@@ -42,6 +42,48 @@ run deterministically. This is the runtime every downstream stage black-boxes.
   this task adds environment only.
 - Live-DB verification for behavioral suites is *[deferred: tsk-003]* — the net is
   authored against this frozen runtime.
+
+## Resolution (2026-07-05 — GATE 2 passed, merged)
+
+Retry of rejection 1 completed: all four findings remediated and live-verified
+(gate `FrozenRuntimeContainerTest.php`: **5 passed / 0 failed / 0 deferred**,
+hooks build/lint/test/analyze all exit 0). Chief-auditor verdict **APPROVE** at
+branch tip `76e7206`; content-hash of the committed `composer.lock` validated
+against Composer's own algorithm by the auditor. Merged to master as `7c6cc18`
+(severity medium — no human-merge freeze). `rejection_count` stays 1 (final).
+Historical sections below are retained for the audit trail.
+
+## Build Attempt Note (2026-07-04, retry of rejection 1 — BLOCKED, no verdict; superseded by Resolution above)
+
+The retry build ran in a session with no execution permissions (docker/php/
+composer/gh denied; ALL mutating git denied, including add/commit in the task
+worktree). `rejection_count` stays **1** — no chief-auditor verdict was reached,
+so this attempt does not count toward the circuit breaker.
+
+**State:** all four rejection-1 remediations are complete but **UNCOMMITTED** in
+the persistent worktree `C:/awasd/guestbook/.claude/worktrees/wf_d3a8a403-c0c-2`
+(branch `chore/tsk-002`, still at `402155e`). Changed there: `docker-compose.yml`
+(env-sourced `MYSQL_ROOT_PASSWORD` with `:?` guard; `CMD-SHELL` healthcheck with
+`$$`-escaped expansion), `Dockerfile` (pinned PHPUnit 5.7.27 phar + mirror to
+`vendor/bin/phpunit`), `.gitignore` (composer.lock ignore line removed; the
+pre-existing conflict markers got resolved in the process — auditor scoped that
+out, next audit must adjudicate), `.dockerignore` (lock un-excluded, `.env`
+excluded), new `.env.example` (key, no value), new `composer.lock`, gate test
+`$allowed` now includes `composer.lock`, `README.md`, plus worktree-local
+`.ptah/audit/` KB edits (honest DEBT-3/DEBT-7 rewrite).
+
+**The next worker MUST, in order:**
+1. **Regenerate `composer.lock` for real** — it is currently HAND-AUTHORED with a
+   best-effort content-hash, and the Dockerfile comment claiming Composer-2
+   generation is aspirational until then (inaccurate-evidence risk, same class
+   as rejection-1 finding 4):
+   `docker run --rm -v .:/app -w /app composer:2 composer update --no-install --no-dev`
+2. Create a git-ignored `.env` with a throwaway `MYSQL_ROOT_PASSWORD`, rebuild,
+   and run the live gate from the worktree:
+   `php application/tests/infra/FrozenRuntimeContainerTest.php` — required:
+   exit 0, 4 passed / 0 failed / 1 deferred (TAC 5 only).
+3. Commit (honest message), push `origin chore/tsk-002`, ensure the PR exists,
+   then run the full verify fan-out + chief-auditor gate.
 
 ## Audit Feedback (rejection 1)
 

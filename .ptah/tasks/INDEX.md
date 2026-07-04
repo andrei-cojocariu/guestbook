@@ -16,9 +16,9 @@ through `depends_on`.
 | Task | Type | Priority | Sev | Status | Depends on |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | tsk-001 | chore | P0-Critical | high | done | — |
-| tsk-002 | chore | P0-Critical | medium | audit-failed | tsk-001 |
-| tsk-003 | stabilize | P0-Critical | high | blocked | tsk-002 |
-| tsk-004 | chore | P0-Critical | high | blocked | tsk-002 |
+| tsk-002 | chore | P0-Critical | medium | done | tsk-001 |
+| tsk-003 | stabilize | P0-Critical | high | active | tsk-002 |
+| tsk-004 | chore | P0-Critical | high | pending | tsk-002 |
 | tsk-005 | decouple | P0-Critical | high | blocked | tsk-003 |
 | tsk-006 | chore | P0-Critical | high | blocked | tsk-003 |
 | tsk-007 | decouple | P2-Debt | medium | blocked | tsk-003 |
@@ -75,8 +75,11 @@ The `concurrency_limit` is the widest antichain of independently dispatchable ta
 the safe upper bound on simultaneous software-developer-worker branches. It is a
 ceiling, not a target; the orchestrator runs fewer, filling P0 slots before P2.
 
-- **Ready now (no unmet dependencies):** `tsk-002` only. `tsk-001` and `tsk-010` are
-  already `done`; every other task is `blocked` on an unmet `depends_on`.
+- **Ready now (no unmet dependencies):** `tsk-003` (net) and `tsk-004` (secrets) —
+  Batch A, unblocked by `tsk-002` merging (`7c6cc18`). `tsk-001`, `tsk-002` and
+  `tsk-010` are `done`; every other task is `blocked` on an unmet `depends_on`.
+  Note: `tsk-003` and `tsk-004` are both `severity: high` — each needs the GATE 1→
+  active human-in-the-loop approval at the ptah console before dispatch.
 - **Serial trunk (no parallelism possible):** `tsk-002 -> tsk-003` — each strictly gates
   the next.
 - **Batch A — after tsk-002 is `done`:** `tsk-003` (net) and `tsk-004` (secrets) run in
