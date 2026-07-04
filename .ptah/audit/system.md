@@ -28,9 +28,10 @@ through a form; entries are persisted to MySQL and rendered back as a timeline.
 - No `composer.lock`; front-end libraries are committed under `js/` and `css/`
   with no lockfile, so those versions are **unversioned** (Legacy Protocol).
 - No `phpunit.xml`, no PHPUnit wired. `application/tests/schema/` now holds one
-  standalone PDO gate script (`MessagesSchemaProvisioningTest.php`, `tsk-001`);
-  it is not a suite and does not cover the sign/list flow (`tsk-002`) → test
-  coverage remains effectively zero for product behavior.
+  standalone, static, DB-connection-free gate script
+  (`MessagesSchemaProvisioningTest.php`, `tsk-001`); it is not a suite and
+  does not cover the sign/list flow (`tsk-002`) → test coverage remains
+  effectively zero for product behavior.
 - `application/config/autoload.php:61,92` → `database` library and `url` helper are
   globally autoloaded; every request opens a MySQL connection before routing.
 - No `.github/workflows` / CI config: the "CI" in the commit history refers to

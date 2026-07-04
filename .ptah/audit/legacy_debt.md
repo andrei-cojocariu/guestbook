@@ -100,9 +100,10 @@ and line. Severity reflects blast radius on a live deployment.
 
 - **Where** — no `phpunit.xml` or wired PHPUnit suite anywhere under
   `application/`. `application/tests/schema/MessagesSchemaProvisioningTest.php`
-  now exists as a standalone `tsk-001` acceptance gate (plain PDO script, run
-  via `php <file>`), but it is not a PHPUnit test and does not exercise the
-  sign/list flow — the characterization net itself (`tsk-002`) is still absent.
+  now exists as a standalone `tsk-001` acceptance gate — a static, DB-connection-free
+  script run via `php <file>` (observed: exits 0, 3 passed / 0 failed / 1 deferred)
+  — but it is not a PHPUnit test and does not exercise the sign/list flow — the
+  characterization net itself (`tsk-002`) is still absent.
 - **Impact** — every refactor is blind. This is the blast zone; nothing can be
   safely changed until characterization tests exist. Tracked by `tsk-002`.
 - **Anchor** — `#no-test-coverage`.
