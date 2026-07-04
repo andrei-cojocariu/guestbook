@@ -16,7 +16,7 @@ through a form; entries are persisted to MySQL and rendered back as a timeline.
 | Database | MySQL via `mysqli` | server 5.x assumed | Config |
 | Front-end | Bootstrap 3, jQuery, jQuery Validate | vendored, unpinned | Heuristic |
 | Build/CSS | Sass (`sass/style.scss`) | unpinned | Heuristic |
-| Tests | two standalone gate scripts, no framework wired | `application/tests/schema/`, `application/tests/infra/` | Source |
+| Tests | PHPUnit 5.7.27 wired (`phpunit.xml`) + two standalone gate scripts | `application/tests/characterization/` (`tsk-003`), `application/tests/schema/`, `application/tests/infra/` | Source |
 | Dev/CI runtime | Docker (`php:5.6.40-apache` + `mysql:5.7.44`), pinned, no floating tags | `Dockerfile`, `docker-compose.yml` (`tsk-002`) | Source |
 
 ### Detection evidence
@@ -29,14 +29,16 @@ through a form; entries are persisted to MySQL and rendered back as a timeline.
 - `composer.lock` is committed (`tsk-002`, `packages: []`, generated with
   `--no-dev`); front-end libraries are still committed under `js/` and `css/`
   with no lockfile, so **those** versions remain unversioned (Legacy Protocol).
-- No `phpunit.xml`, no PHPUnit wired. `application/tests/schema/` holds one
-  standalone, static, DB-connection-free gate script
+- **Updated (`tsk-003`, landed):** `phpunit.xml` + `application/tests/characterization/`
+  now wire PHPUnit 5.7.27 to a real, black-box suite (`SignAndListFlowTest.php`)
+  covering the sign/list flow — 8/8 passing live against `ci-guestbook:frozen`;
+  see `legacy_debt.md` DEBT-2 (resolved for this flow) and
+  `features/characterization-baseline.md`. `application/tests/schema/` still
+  holds one standalone, static, DB-connection-free gate script
   (`MessagesSchemaProvisioningTest.php`, `tsk-001`), and `application/tests/infra/`
   holds a second (`FrozenRuntimeContainerTest.php`, `tsk-002`, does live Docker
-  verification where available); neither is a PHPUnit suite and neither covers
-  the sign/list flow (the characterization net, `tsk-003` in the concrete
-  `.ptah/tasks/` queue — see `legacy_debt.md` DEBT-10) → test coverage remains
-  effectively zero for product behavior.
+  verification where available); neither of those two is a PHPUnit suite, but
+  the sign/list flow itself is no longer uncovered.
 - `Dockerfile` + `docker-compose.yml` (`tsk-002`) pin the exact legacy runtime
   this app already assumed (PHP 5.6, MySQL 5.7, same-host `mysqli` "localhost"
   socket topology) as a reproducible container — a baseline for
