@@ -1,0 +1,18 @@
+# Phase 1 freeze image (tsk-002): keep the build context to what the frozen
+# runtime needs. `system/` (CI framework) stays — it is required at runtime.
+# composer.lock is intentionally NOT excluded here — Composer 1 (in the
+# Dockerfile's `composer install`) must see the committed lock file inside
+# the build context (see rejection-1 TAC 3 remediation).
+.git
+.ptah
+nbproject
+user_guide
+vendor
+*.log
+ptah-debug.log
+.DS_Store
+
+# Never bake the live credential into the build context/image layers either
+# (docker-compose.yml sources it from this file via ${MYSQL_ROOT_PASSWORD});
+# see .ptah/audit/legacy_debt.md SEC-2.
+.env
