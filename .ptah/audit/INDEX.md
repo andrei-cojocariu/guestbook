@@ -30,6 +30,7 @@ downstream workers navigate. Stack: CodeIgniter 3.1.5 on PHP `>=5.3.7`, MySQL
 | `application/config/routes.php` | `files/application/config/routes.php.md` | submission, timeline |
 | `application/config/autoload.php` | `files/application/config/autoload.php.md` | persistence, submission, timeline |
 | `application/tests/schema/MessagesSchemaProvisioningTest.php` | `files/application/tests/schema/MessagesSchemaProvisioningTest.php.md` | persistence (tsk-001 schema gate; no dedicated feature scenario) |
+| `schema/messages.sql` | `files/schema/messages.sql.md` | persistence (tsk-001 versioned DDL) |
 
 ## Debt anchors (see legacy_debt.md)
 
@@ -72,7 +73,10 @@ The seed queue in `.ptah/tasks/` traces to this audit: `tsk-001` → `#no-reprod
 `tsk-004` → `features/spam-filter.md` / STR-3, `tsk-010` → `#dead--unused-code`
 (resolved — Welcome demo removed).
 
-`tsk-001` in progress: its acceptance gate,
-`application/tests/schema/MessagesSchemaProvisioningTest.php`, has landed, but the
-`schema/messages.sql` deliverable it gates has not — the test itself reports the
-schema as missing. `#no-reproducible-env` remains open.
+`tsk-001` DDL delivered: `schema/messages.sql` has landed (forward-only,
+idempotent-by-construction, matches the model's insert shape and the
+database.php charset/collation) — see `files/schema/messages.sql.md`. This is
+an artifact-only delivery verified statically; no live database exists yet,
+so forward-apply / idempotent re-apply / rollback execution are
+`[deferred: tsk-002]`. `#no-reproducible-env` remains open pending the
+container/runtime pinning that lets this DDL actually run.
