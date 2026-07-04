@@ -100,9 +100,10 @@ and line. Severity reflects blast radius on a live deployment.
 
 - **Where** — no `phpunit.xml` or wired PHPUnit suite anywhere under
   `application/`. `application/tests/schema/MessagesSchemaProvisioningTest.php`
-  now exists as a standalone `tsk-001` acceptance gate (plain PDO script, run
-  via `php <file>`), but it is not a PHPUnit test and does not exercise the
-  sign/list flow — the characterization net itself (`tsk-002`) is still absent.
+  now exists as a standalone `tsk-001` acceptance gate — a static, DB-connection-free
+  script run via `php <file>` (observed: exits 0, 3 passed / 0 failed / 1 deferred)
+  — but it is not a PHPUnit test and does not exercise the sign/list flow — the
+  characterization net itself (`tsk-002`) is still absent.
 - **Impact** — every refactor is blind. This is the blast zone; nothing can be
   safely changed until characterization tests exist. Tracked by `tsk-002`.
 - **Anchor** — `#no-test-coverage`.
@@ -111,11 +112,18 @@ and line. Severity reflects blast radius on a live deployment.
 
 - **Where** — no `Dockerfile`/`docker-compose.yml`; runtime (PHP 5.6-era, MySQL)
   is implicit and unpinned. Behavior cannot be reproduced for characterization.
-  `schema/messages.sql` (the versioned DDL `tsk-001` is meant to deliver) has
-  not landed yet; only its acceptance gate,
-  `application/tests/schema/MessagesSchemaProvisioningTest.php`, exists so far,
-  and it currently reports the schema file as missing.
-- **Impact** — blocks `tsk-001` / `tsk-002`. Tracked by `tsk-001`.
+  `schema/messages.sql` (the versioned DDL `tsk-001` delivers) has now landed —
+  a forward-only, idempotent-by-construction `CREATE TABLE IF NOT EXISTS
+  messages (...)` matching the insert shape in `Guestbook_messages.php` and
+  the charset/collation in `application/config/database.php`. See
+  `files/schema/messages.sql.md`. This is an **artifact-only** delivery: no
+  live database or test container exists yet, so forward-apply, idempotent
+  re-apply, and rollback are verified only statically (by reading the DDL),
+  not executed. Live execution is `[deferred: tsk-002]`, the frozen container
+  this schema is meant to seed on first boot.
+- **Impact** — the container/runtime pinning itself (`tsk-002`) is still
+  outstanding; only the DDL half of this debt item is resolved. Tracked by
+  `tsk-002` for the remaining reproducible-runtime and live-verification work.
 - **Anchor** — `#no-reproducible-env`.
 
 ### DEBT-6 No CI pipeline to enforce the standard matrix
