@@ -13,7 +13,7 @@ downstream workers navigate. Stack: CodeIgniter 3.1.5 on PHP `>=5.3.7`, MySQL
 | Render the message timeline | `features/timeline-rendering.md` | live (+ output-encoding hardening, SEC-1) | controller, model, timeline view, homepage |
 | Persist guestbook messages | `features/message-persistence.md` | live (+ repository port, STR-1) | model |
 | Env-driven secret management | `features/secret-management.md` | planned (SEC-2/3/5) | database.php, config.php, index.php |
-| Characterization net (sign/list) | `features/characterization-baseline.md` | planned (DEBT-2 / tsk-003; frozen runtime prerequisite tsk-002 delivered) | controller, model, views |
+| Characterization net (sign/list) | `features/characterization-baseline.md` | live (tsk-003 delivered — 8/8 tests passing against `ci-guestbook:frozen`) | controller, model, views |
 | Provision the messages schema | `features/schema-provisioning.md` | live (tsk-001 static gate + tsk-002 live-DB verification) | schema DDL, static test, frozen container |
 
 (The former "Filter spam from submissions" feature was de-scoped at GATE 1 —
@@ -40,6 +40,11 @@ inventions". A spam filter needs a BDD contract authored first.)
 | `docker-compose.yml` | `files/docker-compose.yml.md` | characterization-baseline (tsk-002 frozen runtime) |
 | `.dockerignore` | `files/.dockerignore.md` | characterization-baseline (tsk-002 build-context scoping) |
 | `application/tests/infra/FrozenRuntimeContainerTest.php` | `files/application/tests/infra/FrozenRuntimeContainerTest.php.md` | characterization-baseline (tsk-002 container gate; no dedicated feature scenario) |
+| `application/tests/characterization/SignAndListFlowTest.php` | `files/application/tests/characterization/SignAndListFlowTest.php.md` | characterization-baseline, submission, timeline (tsk-003 net, 8/8 live) |
+| `application/tests/characterization/router.php` | `files/application/tests/characterization/router.php.md` | characterization-baseline (tsk-003 test-only `php -S` router) |
+| `application/tests/characterization/bootstrap.php` | `files/application/tests/characterization/bootstrap.php.md` | characterization-baseline (tsk-003 PHPUnit bootstrap) |
+| `application/tests/characterization/support/ModelHarness.php` | `files/application/tests/characterization/support/ModelHarness.php.md` | characterization-baseline (tsk-003 model-layer stub for BUG-2) |
+| `phpunit.xml` | `files/phpunit.xml.md` | characterization-baseline (tsk-003 wires `hooks.test` to a real suite) |
 
 ## Debt anchors (see legacy_debt.md)
 
@@ -54,7 +59,7 @@ inventions". A spam filter needs a BDD contract authored first.)
 | BUG-2 | `#silent-insert-success` | High |
 | BUG-3 | `#model-ctor` | High |
 | DEBT-1 | `#active-record-coupling` | Medium |
-| DEBT-2 | `#no-test-coverage` | Medium |
+| DEBT-2 | `#no-test-coverage` | Resolved for sign/list flow (`tsk-003` characterization net, 8/8 live) |
 | DEBT-3 | `#no-reproducible-env` | Resolved (`tsk-001` + `tsk-002`) |
 | DEBT-4 | `#eol-framework` | Medium |
 | DEBT-6 | `#no-ci-pipeline` | Medium |
@@ -93,7 +98,7 @@ differs from older prose elsewhere in `system.md`/`standards.md`):
 
 - `tsk-001` → `#no-reproducible-env` (schema/DDL half; done)
 - `tsk-002` → `#no-reproducible-env` (frozen-container half; done, this pass)
-- `tsk-003` → `#no-test-coverage` (characterization net; unblocked, not started)
+- `tsk-003` → `#no-test-coverage` (characterization net; delivered — see `legacy_debt.md` DEBT-2)
 - `tsk-007` → `#active-record-coupling` / STR-1 (repository port)
 - `tsk-008` → STR-3 (submission-guard validation service, behind the tsk-007 port; the former `tsk-009` spam feature was de-scoped at GATE 1 — no BDD contract)
 - `tsk-010` → `#dead--unused-code` (resolved — Welcome demo removed)
@@ -107,5 +112,19 @@ live insert with the model's exact shape, idempotent re-apply against a
 populated table, and rollback are all verified live (re-run in this
 docs-sync pass, via the committed
 `application/tests/infra/FrozenRuntimeContainerTest.php`) — see
-`legacy_debt.md` DEBT-3. `#no-reproducible-env` is resolved;
-`#no-test-coverage` (the characterization net itself, `tsk-003`) remains open.
+`legacy_debt.md` DEBT-3. `#no-reproducible-env` is resolved.
+
+`tsk-003` (characterization net) has since landed:
+`application/tests/characterization/SignAndListFlowTest.php` (real,
+black-box PHPUnit, wired via the new `phpunit.xml` + `bootstrap.php`) covers
+both the sign (`Guestbook::create`) and list (`Guestbook::index`) flow —
+8/8 tests passing live against `ci-guestbook:frozen` + `mysql:5.7.44`,
+including the frozen known deviations (`#csrf-disabled`, `#stored-xss`,
+`#timeline-time-bug`, `#silent-insert-success`). `#no-test-coverage` is
+resolved for this flow — see `legacy_debt.md` DEBT-2 and
+`files/application/tests/characterization/SignAndListFlowTest.php.md` (which
+also records two feedback-loop findings for the test-engineer-worker where
+verified live behavior diverged from `characterization-baseline.md`'s
+original scenario wording). This is the hard prerequisite gate for `tsk-005`
+(output encoding) and `tsk-006` (CSRF), both still `blocked` pending human
+GATE 1 dispatch.

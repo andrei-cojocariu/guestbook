@@ -98,19 +98,37 @@ and line. Severity reflects blast radius on a live deployment.
   this document's older Stage-2 sequencing prose implied).
 - **Anchor** — `#active-record-coupling`.
 
-### DEBT-2 No test coverage
+### DEBT-2 No test coverage — resolved for the sign/list flow (`tsk-003`)
 
-- **Where** — no `phpunit.xml` or wired PHPUnit suite anywhere under
+- **Was** — no `phpunit.xml` or wired PHPUnit suite anywhere under
   `application/`. `application/tests/schema/MessagesSchemaProvisioningTest.php`
-  now exists as a standalone `tsk-001` acceptance gate — a static, DB-connection-free
-  script run via `php <file>` (observed: exits 0, 3 passed / 0 failed / 1 deferred)
-  — but it is not a PHPUnit test and does not exercise the sign/list flow — the
-  characterization net itself (`tsk-003`, per the concrete `.ptah/tasks/` queue)
-  is still absent. `tsk-002` (frozen runtime container) has since landed and only
-  unblocks `tsk-003`; it does not itself add sign/list coverage.
-- **Impact** — every refactor is blind. This is the blast zone; nothing can be
-  safely changed until characterization tests exist. Tracked by `tsk-003`, now
-  unblocked (its `depends_on: [tsk-002]` is satisfied).
+  (`tsk-001`) and `application/tests/infra/FrozenRuntimeContainerTest.php`
+  (`tsk-002`) are both standalone, PHPUnit-free acceptance gates — neither
+  exercises the sign/list flow itself.
+- **Resolved (tsk-003)** — `phpunit.xml` + `application/tests/characterization/`
+  (`bootstrap.php`, `router.php`, `support/ModelHarness.php`,
+  `SignAndListFlowTest.php`) wire the pinned PHPUnit 5.7.27 phar
+  (`tsk-002`) to a real, black-box suite: real HTTP requests (via a `php -S`
+  server behind `router.php`) against the project's actual `index.php`, and a
+  real `mysqli` connection reading back what was actually persisted. One
+  scenario (`#silent-insert-success`) exercises `Guestbook_messages::set_message()`
+  directly against a stub `$this->db` instead of over HTTP — see
+  `files/application/tests/characterization/SignAndListFlowTest.php.md` for
+  why. Verified live against `ci-guestbook:frozen` + `mysql:5.7.44`: **8
+  passed, 0 failed, 41 assertions**, repeated for determinism. Zero product
+  code changed by this task.
+- **Feedback-loop findings** — two `characterization-baseline.md` scenarios'
+  literal wording did not match verified real behavior and were characterized
+  against the verified ground truth instead (recorded formally for the
+  test-engineer-worker to reconcile the BDD text): the `<script>...</script>`
+  stored-XSS payload is neutralized to `[removed]` by `xss_clean()` before
+  storage (so a non-tag HTML-metacharacter payload is used instead), and no
+  black-box HTTP payload against this schema forces a genuine insert failure
+  (an invalid-charset payload silently truncates rather than erroring under
+  this container's effective `sql_mode`).
+- **Impact** — every refactor was previously blind for this flow; `tsk-005`
+  (output encoding) and `tsk-006` (CSRF) can now be diffed against this
+  recorded baseline instead of shipping unreviewed behavior changes.
 - **Anchor** — `#no-test-coverage`.
 
 ### DEBT-3 No reproducible environment — remediation in progress (`tsk-001` + `tsk-002`)
