@@ -74,7 +74,14 @@ Then the raw, unescaped metacharacters are present in the response body verbatim
 # that genuinely survives xss_clean|strip_tags unmolested (no "<" character, so
 # none of xss_clean's tag/script detection triggers), while still
 # characterizing the same underlying defect: no output encoding at the view
-# boundary. Test-engineer-worker: please ratify or further refine this wording.
+# boundary.
+#
+# RATIFIED (test-engineer-worker, 2026-07-05): independently re-verified
+# against system/core/Security.php:486-489 — any "script"/"xss" occurrence
+# inside a tag delimiter is rewritten to "[removed]" before strip_tags runs,
+# so the original literal payload is unreachable through this pipeline. The
+# substituted payload correctly characterizes #stored-xss without relying on
+# an unreachable input.
 ```
 
 ## Scenario: Timeline timestamp is the render time, not received_on (frozen bug)
@@ -104,8 +111,14 @@ Then it still returns true, exactly as it does when the insert actually succeeds
 # to fail for a submission [over HTTP]" framing is not reachable as literally
 # written. This scenario is corrected to exercise set_message() directly
 # against a stubbed db collaborator (the one collaborator the bug is actually
-# about), which still requires zero product-code changes. Test-engineer-worker:
-# please ratify or further refine this wording.
+# about), which still requires zero product-code changes.
+#
+# RATIFIED (test-engineer-worker, 2026-07-05): confirmed live — the `messages`
+# table has no unique constraint beyond its surrogate key, and an
+# invalid-charset payload truncates silently under this container's effective
+# sql_mode rather than erroring, so no black-box HTTP payload can force
+# db->insert() to return FALSE. Exercising set_message() directly against a
+# stubbed $this->db is the correct, deterministic characterization of BUG-2.
 ```
 
 ## Scenario: Validation rejects short or malformed input (current behavior)
