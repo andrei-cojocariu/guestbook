@@ -43,7 +43,8 @@ Then all rows are returned as an array ordered by received_on descending
 interface (`all()`, `add(entry)`); the CI Active Record model becomes the first
 adapter behind it. This is a **behavior-preserving** decoupling — the same
 characterization net stays green across the swap. The controller depends on the
-port, never on `$this->db`. Tracked by `tsk-003`; lands after the net.*
+port, never on `$this->db`. Tracked by `tsk-007` (per the concrete `.ptah/tasks/`
+queue); lands after the net (`tsk-003`).*
 
 ## Scenario: The controller persists through the repository port
 

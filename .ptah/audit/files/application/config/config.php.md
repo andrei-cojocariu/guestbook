@@ -21,4 +21,6 @@ Global CodeIgniter application configuration.
 ## Blast radius
 
 Framework-wide. Enabling CSRF changes every form's rendered markup and will fail
-not-yet-written characterization tests, so sequence it after `tsk-002`.
+not-yet-written characterization tests, so sequence it after the net (`tsk-003`,
+per the concrete `.ptah/tasks/` queue — `tsk-002`, the frozen runtime, has since
+landed but does not itself add that coverage).

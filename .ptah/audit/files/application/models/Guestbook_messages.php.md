@@ -24,7 +24,8 @@ CI Active Record data access for the `messages` table.
 - `#silent-insert-success` — returns `true` without checking the insert result.
 - `#model-ctor` — empty constructor omits `parent::__construct()`.
 - `#active-record-coupling` — direct `$this->db`; this is Strangler Fig seam
-  `STR-1` (introduce `GuestbookRepository`), tracked by `tsk-003`.
+  `STR-1` (introduce `GuestbookRepository`), tracked by `tsk-007` (per the
+  concrete `.ptah/tasks/` queue), gated on the characterization net (`tsk-003`).
 
 ## Blast radius
 

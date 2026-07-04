@@ -1,5 +1,11 @@
-<<<<<<< HEAD
 .DS_Store
+
+*/config/development
+*/logs/log-*.php
+!*/logs/index.html
+*/cache/*
+!*/cache/index.html
+!*/cache/.htaccess
 
 application/cache/*
 !application/cache/index.html
@@ -8,8 +14,6 @@ application/cache/*
 application/logs/*
 !application/logs/index.html
 !application/logs/.htaccess
-
-composer.lock
 
 user_guide_src/build/*
 user_guide_src/cilexer/build/*
@@ -28,22 +32,9 @@ user_guide_src/cilexer/pycilexer.egg-info/*
 *.stTheme.cache
 *.sublime-workspace
 *.sublime-project
-=======
-*/config/development
-*/logs/log-*.php
-!*/logs/index.html
-*/cache/*
-!*/cache/index.html
-!*/cache/.htaccess
 
-user_guide_src/build/*
-user_guide_src/cilexer/build/*
-user_guide_src/cilexer/dist/*
-user_guide_src/cilexer/pycilexer.egg-info/*
-
-#codeigniter 3
-application/logs/*
-!application/logs/index.html
-!application/logs/.htaccess
-/vendor/
->>>>>>> origin/master
+# tsk-002 (freeze runtime): docker-compose.yml auto-loads this file for
+# ${MYSQL_ROOT_PASSWORD} substitution. It must never be tracked — see
+# .ptah/audit/legacy_debt.md SEC-2 (live credential, rotate + purge from
+# history) and standards.md "Secret management".
+.env

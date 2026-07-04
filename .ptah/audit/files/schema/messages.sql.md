@@ -45,8 +45,10 @@ CREATE TABLE IF NOT EXISTS messages (
 `CREATE TABLE IF NOT EXISTS` makes re-running this file against an
 already-provisioned database a safe no-op by construction — never an error,
 never a destructive rewrite. The file contains **no** `ALTER TABLE` /
-`DROP TABLE` statement anywhere, including in comments. Suitable as a
-first-boot init artifact for the frozen container (`tsk-002`).
+`DROP TABLE` statement anywhere, including in comments. Used as the
+first-boot init artifact for the frozen container (`tsk-002`, landed —
+mounted at `docker-entrypoint-initdb.d/01-messages.sql` in
+`docker-compose.yml`).
 
 ## Rollback (documented, not embedded in the forward file)
 
@@ -82,19 +84,34 @@ Verified now, by reading the committed file (static):
 - `hooks.lint` (`php -l` across `application/`) passes — no PHP file was
   changed by this task, so this is a no-op confirmation, not a new pass.
 
-**Not run, not claimed** — deferred to `tsk-002` (the frozen container this
-schema seeds into), which provides the first live database this DDL can
-execute against:
+**Updated by this docs-sync pass** — `tsk-002` (frozen runtime container) has
+since landed and provides the first live database this DDL can execute
+against. Re-run live here (Docker available, `MYSQL_ROOT_PASSWORD` set from
+the git-ignored `.env`):
+`php application/tests/infra/FrozenRuntimeContainerTest.php`
+(`test_schema_applies_idempotently_reapply_against_populated_table_and_rollback_verified_live`,
+observed PASS this run — see
+`files/application/tests/infra/FrozenRuntimeContainerTest.php.md`):
 
-- `[deferred: tsk-002]` Forward apply against an empty database.
-- `[deferred: tsk-002]` Idempotent re-apply against a database that already
-  has the table (and rows), proving the no-op path in practice, not just by
-  construction.
-- `[deferred: tsk-002]` Live insert using the model's exact shape, confirming
-  `received_on` is populated by the DB-side default in practice.
-- `[deferred: tsk-002]` The rollback statement (`DROP TABLE IF EXISTS
-  messages;`) executed and confirmed against a disposable, non-production
-  database, followed by a clean re-apply of the forward file (restart proof).
+- **Forward apply against an empty database** — verified live: the container
+  boots, seeds this file via `docker-entrypoint-initdb.d`, and `messages`
+  exists, is empty, with the `name`/`email`/`message`/`received_on` shape
+  confirmed by `DESCRIBE`.
+- **Live insert using the model's exact shape** — verified live: an insert
+  supplying only `name`/`email`/`message` (the model's exact insert-data
+  array) succeeds, the row count becomes 1, and `received_on` is populated
+  by the DB-side default (not by application code).
+- **Idempotent re-apply against a populated table** — verified live: sourcing
+  `schema/messages.sql` again against the now-populated table is a safe
+  no-op (row count stays 1).
+- **Rollback** — verified live: `DROP TABLE IF EXISTS messages;` removes the
+  table, is itself idempotent (a second run also exits 0), and a subsequent
+  re-apply of the forward file recreates the table empty with the same
+  shape (restart-proof).
+
+All four criteria above are now exercised by a committed, automated test
+(`application/tests/infra/FrozenRuntimeContainerTest.php`); none remain
+deferred.
 
 A prior attempt at this task (`chore/tsk-001`, commit `c020d51`) asserted a
 live-database verification transcript (MariaDB 10.4, 7/7 gate assertions)

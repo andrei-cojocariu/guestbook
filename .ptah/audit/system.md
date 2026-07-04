@@ -16,7 +16,8 @@ through a form; entries are persisted to MySQL and rendered back as a timeline.
 | Database | MySQL via `mysqli` | server 5.x assumed | Config |
 | Front-end | Bootstrap 3, jQuery, jQuery Validate | vendored, unpinned | Heuristic |
 | Build/CSS | Sass (`sass/style.scss`) | unpinned | Heuristic |
-| Tests | one standalone gate script, no framework wired | `application/tests/schema/` | Source |
+| Tests | two standalone gate scripts, no framework wired | `application/tests/schema/`, `application/tests/infra/` | Source |
+| Dev/CI runtime | Docker (`php:5.6.40-apache` + `mysql:5.7.44`), pinned, no floating tags | `Dockerfile`, `docker-compose.yml` (`tsk-002`) | Source |
 
 ### Detection evidence
 
@@ -27,11 +28,19 @@ through a form; entries are persisted to MySQL and rendered back as a timeline.
 - `application/config/database.php:82` → `'dbdriver' => 'mysqli'`.
 - No `composer.lock`; front-end libraries are committed under `js/` and `css/`
   with no lockfile, so those versions are **unversioned** (Legacy Protocol).
-- No `phpunit.xml`, no PHPUnit wired. `application/tests/schema/` now holds one
+- No `phpunit.xml`, no PHPUnit wired. `application/tests/schema/` holds one
   standalone, static, DB-connection-free gate script
-  (`MessagesSchemaProvisioningTest.php`, `tsk-001`); it is not a suite and
-  does not cover the sign/list flow (`tsk-002`) → test coverage remains
+  (`MessagesSchemaProvisioningTest.php`, `tsk-001`), and `application/tests/infra/`
+  holds a second (`FrozenRuntimeContainerTest.php`, `tsk-002`, does live Docker
+  verification where available); neither is a PHPUnit suite and neither covers
+  the sign/list flow (the characterization net, `tsk-003` in the concrete
+  `.ptah/tasks/` queue — see `legacy_debt.md` DEBT-10) → test coverage remains
   effectively zero for product behavior.
+- `Dockerfile` + `docker-compose.yml` (`tsk-002`) pin the exact legacy runtime
+  this app already assumed (PHP 5.6, MySQL 5.7, same-host `mysqli` "localhost"
+  socket topology) as a reproducible container — a baseline for
+  characterization, not an upgrade; see `legacy_debt.md` DEBT-3 (resolved) and
+  DEBT-7 (Composer manifest still blocks installing PHPUnit inside it).
 - `application/config/autoload.php:61,92` → `database` library and `url` helper are
   globally autoloaded; every request opens a MySQL connection before routing.
 - No `.github/workflows` / CI config: the "CI" in the commit history refers to

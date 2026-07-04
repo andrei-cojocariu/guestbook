@@ -14,17 +14,22 @@
 #      both the Debian `mysql:5.7` image and PHP's mysqli default agree on,
 #      exactly as they would sitting on the same real host.
 #
-# Credentials below mirror application/config/database.php verbatim
-# (root / Start123! / guestbook) — this is a deliberate freeze of the
-# existing (already-committed, already-logged) credential, not a new leak.
-# See .ptah/audit/legacy_debt.md SEC-2; externalizing it is tsk-004's job,
-# not this task's.
+# Credentials mirror application/config/database.php's root/guestbook pair
+# (a deliberate freeze of the existing, already-logged credential — see
+# .ptah/audit/legacy_debt.md SEC-2 — not a new leak) but are NEVER written
+# here as literals: `MYSQL_ROOT_PASSWORD` is sourced at `docker compose up`
+# time from a git-ignored `.env` file at the repo root (Compose auto-loads
+# `.env` from the project directory; see `.gitignore`/`.dockerignore`/
+# `.env.example`). `:?...` fails `docker compose` fast with a clear message
+# instead of silently booting with an empty root password if `.env` is
+# missing/incomplete. SEC-2 rotation/history-purge remains tsk-004's job;
+# externalizing the reference is this task's (see Audit Feedback, rejection 1).
 services:
   db:
     image: mysql:5.7.44
     container_name: guestbook-frozen-db
     environment:
-      MYSQL_ROOT_PASSWORD: "Start123!"
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}"
       MYSQL_DATABASE: guestbook
     volumes:
       # tsk-001 artifact: forward-only, idempotent DDL seeded on first boot
@@ -36,7 +41,11 @@ services:
       # mysqld's socket — see header note 2.
       - mysqld-socket:/var/run/mysqld
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pStart123!"]
+      # Double-`$$` so Compose passes a literal `$MYSQL_ROOT_PASSWORD` through
+      # to the container's shell (`CMD-SHELL` semantics), which then expands
+      # it from the env the `environment:` block above already injected —
+      # no credential literal tracked here.
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\""]
       interval: 5s
       timeout: 5s
       retries: 20

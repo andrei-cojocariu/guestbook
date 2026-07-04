@@ -56,27 +56,32 @@ RUN echo 'date.timezone=UTC' > /usr/local/etc/php/conf.d/docker-php-timezone.ini
 # the final Composer 1.x release (1.10.26) rather than a floating tag.
 COPY --from=composer:1.10.26 /usr/bin/composer /usr/bin/composer
 
+# --- PHPUnit: pinned PHP-5.6-compatible release, installed as a container-
+# level binary rather than a Composer dependency (rejection-1 TAC 3
+# remediation). This deliberately sidesteps DEBT-7 (composer.json's
+# require-dev is unresolvable on every Composer major — dead Composer-1
+# Packagist protocol + invalid `mikey179/vfsStream` casing): PHPUnit's
+# runnability inside the frozen image no longer depends on that broken
+# manifest resolving at all. 5.7.27 is the last PHPUnit 5.x release (final
+# PHPUnit series supporting PHP 5.6).
+RUN curl -L https://phar.phpunit.de/phpunit-5.7.27.phar -o /usr/local/bin/phpunit \
+    && chmod +x /usr/local/bin/phpunit
+
 WORKDIR /var/www/html
 COPY . /var/www/html
 
 # composer.json's "require" declares only the "php" platform floor today (no
-# real app-level packages) so there is nothing installable there. Its
-# "require-dev" (mikey179/vfsStream, phpunit/phpunit) is a genuinely BROKEN
-# manifest defect discovered while building this freeze — logged as new
-# legacy debt, not fixed here (out of this task's IaC-only scope):
-#   1. "mikey179/vfsStream" has an invalid uppercase package name; Composer
-#      2.x hard-errors on it before any network call is made.
-#   2. Composer 1.x (the only version this frozen PHP 5.6 runtime can run —
-#      Composer 2.3+ requires PHP >= 7.2.5) only warns on that casing, but
-#      Packagist shut down the legacy Composer-1 metadata protocol on
-#      2025-09-01, so neither package can be resolved from any registry today
-#      regardless of Composer major version.
-# Because no lock file exists, `composer install` must fully resolve
-# require-dev even with --no-dev (Composer's own documented behavior), so it
-# fails deterministically on both counts above. Since there is nothing real
-# to install, this is treated as PENDING (matching hooks.test/hooks.analyze's
-# existing "stub gracefully, do not fake a pass" convention) rather than
-# failing the whole image build; any other composer failure still fails hard.
+# real app-level packages), and require-dev (mikey179/vfsStream, invalid
+# casing; phpunit/phpunit, now superseded by the pinned phar above) remains
+# genuinely unresolvable on Packagist's dead Composer-1 metadata protocol —
+# see .ptah/audit/legacy_debt.md DEBT-7. The committed `composer.lock`
+# (generated once via Composer 2 in a modern-PHP stage, with --no-dev so the
+# broken require-dev entries were never resolved) is what makes this step
+# succeed now: Composer 1 installs strictly from the lock (zero real
+# packages) instead of re-solving require-dev from scratch. The PENDING
+# fallback below is kept only as a last-resort safety net if the lock is
+# ever removed/invalidated — it must not silently mask a *new* composer
+# failure unrelated to DEBT-7.
 RUN set -eu; \
     if ! composer install --no-interaction --no-dev --no-progress > /tmp/composer-install.log 2>&1; then \
         if grep -q "could not be found in any version" /tmp/composer-install.log; then \
@@ -85,6 +90,9 @@ RUN set -eu; \
             cat /tmp/composer-install.log; exit 1; \
         fi; \
     fi \
+    && mkdir -p vendor/bin \
+    && cp /usr/local/bin/phpunit vendor/bin/phpunit \
+    && chmod +x vendor/bin/phpunit \
     && chown -R www-data:www-data /var/www/html
 
 EXPOSE 80

@@ -21,7 +21,10 @@ unintended regression becomes visible.
 
 ## Details
 
-This is the safety net required by DEBT-2 and tracked by `tsk-002`. It is
+This is the safety net required by DEBT-2 and tracked by `tsk-003` (per the
+concrete `.ptah/tasks/` queue — `tsk-002`, "freeze the legacy runtime", has now
+landed as this net's prerequisite: it provides the frozen `ci-guestbook:frozen`
+container this net black-boxes, but does not itself add sign/list coverage). It is
 **black-box** (HTTP in, HTTP out against the frozen `ci-guestbook:frozen`
 container) and asserts **observed** input→output only. It deliberately **freezes
 the current, buggy, insecure behavior** — it does NOT assert the desired end state.
@@ -30,7 +33,7 @@ It is a hard prerequisite: the behavior-changing hardening scenarios in
 SEC-4) MUST NOT land until this net is green, so their output/acceptance changes are
 made against a recorded baseline. The behavior-preserving repository refactor
 (`message-persistence.md`, STR-1) keeps this same net green across the adapter swap.
-Zero product-code changes are made by this net (per `tsk-002` TAC).
+Zero product-code changes are made by this net (per `tsk-003`'s TAC).
 
 ## Scenario: A valid submission is stored and acknowledged (current behavior)
 

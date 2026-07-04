@@ -492,6 +492,10 @@ ptah_record(
             // lives here.
             '#^application/tests/#',
             '#^README\.md$#',
+            // Toolchain pin (TAC 3: "composer.lock is committed"), not a
+            // product-code/dependency-manifest change — composer.json itself
+            // stays untouched and is intentionally NOT in this allow-list.
+            '#^composer\.lock$#',
         ];
         // Blanket 'application/' is deliberately NOT here — it would
         // re-disallow application/tests/ above via this second net. Every

@@ -16,7 +16,11 @@ Standalone acceptance gate for `tsk-001` ("Provision the messages table schema
 for the frozen environment"). A self-contained, dependency-free PHP script
 (`php <this file>`) — not PHPUnit, not PDO, and it opens **no** database
 connection. It is a drop-in `TestCase` body once a real suite is wired
-(`tsk-002`).
+(`tsk-003`, per the concrete `.ptah/tasks/` queue — this note previously said
+`tsk-002`, which has since landed as the *frozen container* the net black-boxes,
+not the suite itself; see `legacy_debt.md` DEBT-10). Note also DEBT-8: this
+script uses PHP 7+ syntax (`??`) and cannot run under the frozen runtime's
+PHP 5.6 CLI (`tsk-002`) as-is.
 
 ## Responsibilities
 
@@ -40,17 +44,28 @@ One further criterion is declared and reported, never executed:
 
 - `test_idempotent_reapply_against_populated_table` (idempotent re-apply
   against a populated table + live DB-side population of `received_on`) is
-  listed as `[DEFERRED]` in the script's own output with reason "no live
+  listed as `[DEFERRED]` in *this script's own* output with reason "no live
   database / frozen container exists yet at this stage — deferred to
-  tsk-002". It does not run and is never reported as passed.
+  tsk-002". This script itself still does not run or report that criterion —
+  it remains a static-only gate by design. **Update**: `tsk-002` (frozen
+  container) has since landed and a *different* committed test,
+  `application/tests/infra/FrozenRuntimeContainerTest.php`, now exercises
+  this exact scenario live (forward apply, live insert, idempotent
+  re-apply against a populated table, and rollback all verified — see
+  `files/schema/messages.sql.md` and
+  `files/application/tests/infra/FrozenRuntimeContainerTest.php.md`). So the
+  criterion this script defers is no longer unexercised overall, just not
+  exercised by *this particular* script.
 
 ## Current status (observed)
 
 Run `2026-07-04` from the branch root: `php application/tests/schema/MessagesSchemaProvisioningTest.php`
 exits `0` — `3 passed, 0 failed, 1 deferred`. This is a static-only result
-(no live database involved); it does not speak to the deferred
-forward-apply/idempotent-reapply/rollback criteria, which remain
-`[deferred: tsk-002]`.
+(no live database involved) and is unchanged by `tsk-002` landing — this
+script does not itself gain live-DB coverage. The deferred
+forward-apply/idempotent-reapply/rollback criteria are now separately
+verified live by `application/tests/infra/FrozenRuntimeContainerTest.php` —
+see `files/schema/messages.sql.md`.
 
 ## Notes / gaps
 

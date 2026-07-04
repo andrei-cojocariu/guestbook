@@ -93,7 +93,9 @@ and line. Severity reflects blast radius on a live deployment.
 - **Where** — `application/models/Guestbook_messages.php:11-24` calls
   `$this->db->order_by/get/insert` directly. Storage logic is welded to CI Active
   Record; the domain cannot be tested or re-platformed in isolation.
-- **Strangler Fig** — see STR-1 below. Tracked by `tsk-003`.
+- **Strangler Fig** — see STR-1 below. Tracked by `tsk-007` (repository port;
+  see `DEBT-10` — the concrete `.ptah/tasks/` queue numbers this later than
+  this document's older Stage-2 sequencing prose implied).
 - **Anchor** — `#active-record-coupling`.
 
 ### DEBT-2 No test coverage
@@ -103,27 +105,43 @@ and line. Severity reflects blast radius on a live deployment.
   now exists as a standalone `tsk-001` acceptance gate — a static, DB-connection-free
   script run via `php <file>` (observed: exits 0, 3 passed / 0 failed / 1 deferred)
   — but it is not a PHPUnit test and does not exercise the sign/list flow — the
-  characterization net itself (`tsk-002`) is still absent.
+  characterization net itself (`tsk-003`, per the concrete `.ptah/tasks/` queue)
+  is still absent. `tsk-002` (frozen runtime container) has since landed and only
+  unblocks `tsk-003`; it does not itself add sign/list coverage.
 - **Impact** — every refactor is blind. This is the blast zone; nothing can be
-  safely changed until characterization tests exist. Tracked by `tsk-002`.
+  safely changed until characterization tests exist. Tracked by `tsk-003`, now
+  unblocked (its `depends_on: [tsk-002]` is satisfied).
 - **Anchor** — `#no-test-coverage`.
 
-### DEBT-3 No reproducible environment
+### DEBT-3 No reproducible environment — remediation in progress (`tsk-001` + `tsk-002`)
 
-- **Where** — no `Dockerfile`/`docker-compose.yml`; runtime (PHP 5.6-era, MySQL)
-  is implicit and unpinned. Behavior cannot be reproduced for characterization.
-  `schema/messages.sql` (the versioned DDL `tsk-001` delivers) has now landed —
-  a forward-only, idempotent-by-construction `CREATE TABLE IF NOT EXISTS
-  messages (...)` matching the insert shape in `Guestbook_messages.php` and
-  the charset/collation in `application/config/database.php`. See
-  `files/schema/messages.sql.md`. This is an **artifact-only** delivery: no
-  live database or test container exists yet, so forward-apply, idempotent
-  re-apply, and rollback are verified only statically (by reading the DDL),
-  not executed. Live execution is `[deferred: tsk-002]`, the frozen container
-  this schema is meant to seed on first boot.
-- **Impact** — the container/runtime pinning itself (`tsk-002`) is still
-  outstanding; only the DDL half of this debt item is resolved. Tracked by
-  `tsk-002` for the remaining reproducible-runtime and live-verification work.
+- **Was** — no `Dockerfile`/`docker-compose.yml`; runtime (PHP 5.6-era, MySQL)
+  was implicit and unpinned, so behavior could not be reproduced for
+  characterization.
+- **Progress (rejection-1 retry)** — `schema/messages.sql` (`tsk-001`,
+  versioned DDL) plus `Dockerfile`/`docker-compose.yml` (`tsk-002`,
+  `php:5.6.40-apache` + `mysql:5.7.44`, no floating tags) pin the exact
+  runtime. This retry pass additionally: (a) removed the raw
+  `MYSQL_ROOT_PASSWORD` literal from `docker-compose.yml` in favor of
+  `${MYSQL_ROOT_PASSWORD:?...}` sourced from a git-ignored `.env`
+  (`.env.example` committed as the documented template); (b) pinned a
+  PHPUnit 5.7.27 phar as a container-level binary at
+  `/usr/local/bin/phpunit` / `vendor/bin/phpunit`, sidestepping DEBT-7
+  instead of routing PHPUnit through the broken Composer manifest; (c)
+  committed a `composer.lock` (`packages: []`, `platform: {"php": ">=5.3.7"}`)
+  and unblocked it in `.gitignore`/`.dockerignore` so Composer 1's
+  `composer install` inside the image can install strictly from the lock.
+- **Not independently re-verified live in this pass** — this devops retry
+  ran inside a sandboxed tool session with no permitted Docker/PHP/Composer
+  process execution (build/run/exec/compose and direct `php`/`composer`
+  invocations were denied by the session's own permission system; only
+  read-only Docker introspection and git/file operations were available).
+  The file-level changes above were authored and statically reviewed but the
+  live acceptance gate (`application/tests/infra/FrozenRuntimeContainerTest.php`,
+  `docker compose build`/`up`, in-container `vendor/bin/phpunit --version`)
+  could not be executed from this session to confirm a green exit. The
+  next stage that has Docker/PHP execution available must run it before this
+  entry is marked resolved.
 - **Anchor** — `#no-reproducible-env`.
 
 ### DEBT-6 No CI pipeline to enforce the standard matrix
@@ -132,7 +150,7 @@ and line. Severity reflects blast radius on a live deployment.
   history's "CI" (e.g. `e8cc660`) refers to CodeIgniter form-validation, not
   continuous integration.
 - **Impact** — every `CI blocking` / `CI warning` enforcement in `standards.md` is
-  aspirational; nothing gates a PR today. The characterization net (`tsk-002`) and
+  aspirational; nothing gates a PR today. The characterization net (`tsk-003`) and
   the security gates (SEC-1/SEC-4) have no runner to execute against. Stand up a
   pipeline before promoting any `Pending` rule to blocking.
 - **Anchor** — `#no-ci-pipeline`.
@@ -190,6 +208,24 @@ and line. Severity reflects blast radius on a live deployment.
   binary instead of a Composer dependency. This is a manifest content fix —
   out of this task's IaC-only scope; scheduling it is the
   product-owner-worker's call.
+- **Partial mitigation delivered (tsk-002 rejection-1 retry, IaC-only, `composer.json`
+  itself still untouched)** — both workaround options above are now in place:
+  a `composer.lock` is committed (`packages: []`, generated with `--no-dev` so
+  the broken `require-dev` entries are never resolved — best-effort
+  `content-hash`, not independently regenerated/verified against a live
+  Composer 2 run from this session; a benign "lock file not up to date"
+  warning, if any, does not fail `composer install`) and PHPUnit 5.7.27 is
+  pinned as a container-level phar (`/usr/local/bin/phpunit`, mirrored to
+  `vendor/bin/phpunit`) in the `Dockerfile`, independent of `require-dev`
+  resolving at all. `composer.lock` is unblocked in `.gitignore` and kept in
+  the build context in `.dockerignore`. This underlying manifest defect
+  (invalid `mikey179/vfsStream` casing) itself remains open — fixing
+  `composer.json` is still out of this task's IaC-only scope. The live,
+  in-container `vendor/bin/phpunit --version` check and a real `docker
+  compose build` were **not** independently re-executed from this retry's
+  own tool session (Docker/PHP/Composer process execution was denied by the
+  session's permission system) — confirm live before treating this entry as
+  fully resolved.
 - **Anchor** — `#composer-manifest-unresolvable`.
 
 ### DEBT-8 tsk-001's static gate script uses PHP 7+ syntax, cannot execute under the frozen PHP 5.6 interpreter
@@ -214,6 +250,57 @@ and line. Severity reflects blast radius on a live deployment.
   Composer inside the frozen image).
 - **Anchor** — `#tsk001-script-php7-syntax`.
 
+### ~~DEBT-9 tsk-002's own acceptance gate fails its "no product-code changes" self-check once committed~~ — RESOLVED (rejection-1 retry)
+
+- **Was** — `application/tests/infra/FrozenRuntimeContainerTest.php`,
+  `test_no_product_code_changes_only_container_build_files_touched`. Its
+  `$allowed` allow-list (`Dockerfile`, `docker-compose.yml`, `.dockerignore`,
+  `.ptah/`, `schema/`) did not include the test file's own directory
+  (`application/tests/infra/`), and `application/` was separately in
+  `$disallowedPrefixes` — so once the test file was committed, the self-check
+  permanently failed on itself (observed: 3 passed / 1 failed / 0 deferred),
+  contradicting commit `dc013cb`'s unverified "4 passed" claim.
+- **Resolution** — the tsk-002 rejection-1 retry (secrets-protocol fix pass)
+  touched this same file for the `getenv('MYSQL_ROOT_PASSWORD')` correction
+  anyway, so the allow-list gap was fixed in the same edit: added
+  `#^application/tests/#` to `$allowed`, and replaced the blanket
+  `application/` entry in `$disallowedPrefixes` with the explicit list of
+  real product-code subdirectories (`controllers/`, `models/`, `views/`,
+  `config/`, `core/`, `helpers/`, `hooks/`, `libraries/`, `language/`,
+  `third_party/`, `cache/`, `logs/`), so test/infra additions under
+  `application/tests/` are recognized while actual product code under
+  `application/` remains blocked.
+- **Anchor** — `#tsk002-self-check-allowlist-gap`.
+
+### DEBT-10 Stage-2 design prose and the concrete task queue use different task-numbering schemes, unreconciled
+
+- **Where** — `system.md`'s Target Architecture section and `standards.md`'s
+  Stage 2 confirmation section (both written during Stage 2, before Stage 3
+  generated the concrete `.ptah/tasks/` DAG) cite task IDs that no longer
+  match `.ptah/tasks/INDEX.md`: e.g. `system.md` calls the characterization
+  net `tsk-002` and the repository-port refactor `tsk-003`, and treats
+  `tsk-001` as covering the whole "frozen env" step. The concrete queue
+  instead has `tsk-001` = schema DDL, `tsk-002` = frozen container (this
+  task), `tsk-003` = characterization net, and `tsk-007` = repository port —
+  a finer split Stage 3 introduced that Stage 2's narrative was never updated
+  to match. `features/spam-filter.md` and this file's own `STR-3` entry
+  likewise still cite `tsk-004` for spam-scoring/validation work now split
+  across the concrete `tsk-008` (validation guard) and `tsk-009` (spam
+  feature).
+- **Impact** — read `system.md`/`standards.md`'s prose task-ID citations as
+  illustrative/pre-numbering, not authoritative; `.ptah/tasks/INDEX.md` is
+  ground truth for which concrete task does what. This docs-sync pass
+  corrected the citations most load-bearing for THIS change (`DEBT-2`,
+  `DEBT-3`, `DEBT-6`, `STR-1` above, and `features/characterization-baseline.md`,
+  `features/message-persistence.md`, `files/application/models/Guestbook_messages.php.md`)
+  to the concrete numbering, to avoid implying `tsk-002` (frozen runtime, this
+  task) already delivers the characterization net. The remaining citations
+  (`system.md`, `standards.md`, `features/spam-filter.md`, and this file's
+  `STR-3` entry) were left as-is — reconciling them is a larger, separate
+  editorial pass than this task's diff warrants; flagged here rather than
+  silently carried forward as if verified.
+- **Anchor** — `#task-numbering-scheme-mismatch`.
+
 ## Dead / unused code
 
 ### ~~DEAD-1 Stock CI Welcome demo, unreachable~~ — RESOLVED by `tsk-010`
@@ -236,7 +323,8 @@ and line. Severity reflects blast radius on a live deployment.
 - **Proposed boundary** — a `GuestbookRepository` interface with `all()` /
   `add(entry)`; keep CI Active Record as the first adapter behind it.
 - **Migration risk** — Low/Medium. Behavior-preserving; requires DEBT-2 tests
-  green first so the swap is verifiable. Maps directly to `tsk-003`.
+  green first so the swap is verifiable. Maps directly to `tsk-007` (per the
+  concrete `.ptah/tasks/` queue; gated on `tsk-003`, the characterization net).
 
 ### STR-2 Output-encoding boundary (view seam)
 
