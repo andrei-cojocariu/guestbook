@@ -10,17 +10,15 @@ touches:
 
 # File: application/config/routes.php
 
-URI routing configuration.
+URI routing. Sets `default_controller = 'guestbook'`, empty `404_override`, and
+`translate_uri_dashes = FALSE`.
 
-## Notes
+## Notes / debt
 
-- `default_controller = 'guestbook'` — the guestbook is the site root. The stock
-  `Welcome` controller was unreachable dead code and has been removed
-  (`tsk-010`; see `legacy_debt.md` — Dead / unused code, resolved).
-- No explicit route for `Guestbook/create`; it resolves via CI's default
-  controller/method mapping, and the form hardcodes that path.
+- `/` resolves to `Guestbook::index()`; `Guestbook/create` handles the POST.
+- No `404_override`, so unmatched routes fall to the framework default handler.
 
 ## Blast radius
 
-Changing `default_controller` or adding a `404_override` reshapes which controller
-serves `/`. The implicit `create` mapping is a fragile contract with `form.php`.
+Defines the only entry paths into the app. Renaming the controller or default
+route breaks both features and the form's `form_open('Guestbook/create')` target.

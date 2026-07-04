@@ -29,10 +29,11 @@ the same map.
 
 ## Scope of this run
 
-Scope: `full` (whole project). This refresh reconciled the KB against HEAD
-(`76301fe`); product code is unchanged since the prior audit, so existing entries
-were verified rather than rewritten. Gaps filled this run: `autoload.php` global
-coupling (database + url helper) and the absence of any CI pipeline. The effective
-product surface remains the guestbook code (form, timeline, persistence, CI
-form-validation/sanitization). Framework `system/` and `user_guide/` are treated
-as vendor/legacy and are not documented file-by-file.
+Scope: `full` (whole project). This is a **full rebuild**: the prior audit tree
+was deleted in the working tree, so every artifact here is regenerated from the
+code as it exists on disk now, not from git history. The effective product
+surface is the guestbook code (form, timeline, persistence, CI validation) plus
+the `tsk-001` schema DDL and its static gate. Framework `system/` and
+`user_guide/`, and the front-end vendor asset trees (`css/`, `js/`, `font/`,
+`sass/`, `img/`, `nbproject/`) are treated as vendor/legacy and are not
+documented file-by-file.

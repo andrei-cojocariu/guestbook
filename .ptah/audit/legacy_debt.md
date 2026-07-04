@@ -1,191 +1,137 @@
 # Legacy Debt Ledger — Guestbook
 
-Risk-first. Production-affecting findings lead. Each entry is located with file
-and line. Severity reflects blast radius on a live deployment.
+Risk-first. Every entry is located with file and line evidence. Leads with what
+can hurt production. Anchors (`#slug`) are referenced from `INDEX.md` and file
+docs.
 
 ## Critical — security
 
-### SEC-1 Stored XSS in the timeline (unescaped output)
+### Hardcoded database credentials {#hardcoded-db-credentials}
 
-- **Where** — `application/views/guestbook_components/timeline.php:29-33`.
-- **What** — `name`, `email`, and `message` are echoed with no output encoding
-  (`echo $message['name']`, `... email`, `... message`). Input-side `xss_clean` +
-  `strip_tags` in the controller is **not** a substitute for output escaping and
-  is known-bypassable; any stored payload renders into every visitor's page.
-- **Impact** — persistent XSS: session theft, defacement, drive-by on all viewers.
-- **Fix** — wrap every echoed value in `html_escape()` at the view boundary.
-- **Anchor** — `#stored-xss`.
+`application/config/database.php:79-80` commits a live DB username and password
+in cleartext:
 
-### SEC-2 Hardcoded database credentials in source
+```php
+'username' => 'root',
+'password' => 'Start123!',
+```
 
-- **Where** — `application/config/database.php:79-81` — `'username' => 'root'`,
-  `'password' => 'Start123!'`, `'database' => 'guestbook'`.
-- **Impact** — a real, committed DB password (`Start123!`) with `root` on
-  `localhost`. Anyone with repo read access owns the database. Credential must be
-  rotated and purged from git history, not merely edited.
-- **Fix** — move to environment-driven config; never store secrets in tree.
-- **Anchor** — `#hardcoded-db-credentials`.
+Anyone with repo read access has the production DB root password. Blast radius:
+full database compromise. Fix: source credentials from environment. Severity:
+**Critical**.
 
-### SEC-3 Hardcoded application encryption key
+### Hardcoded encryption key {#hardcoded-encryption-key}
 
-- **Where** — `application/config/config.php:327` —
-  `$config['encryption_key'] = 'tVZo79a2gxgfYJsOIf5W8aBccrDHNq7m';`.
-- **Impact** — a static, committed key undermines any CI encryption/session
-  signing that relies on it. Must be rotated and externalized.
-- **Anchor** — `#hardcoded-encryption-key`.
+`application/config/config.php:327` commits a static `encryption_key`
+(`'tVZo79a2gxgfYJsOIf5W8aBccrDHNq7m'`). Any session/CSRF/crypto keyed on this is
+forgeable by anyone with repo access. Fix: env-sourced key. Severity: **Critical**.
 
-### SEC-4 CSRF protection disabled on a state-changing form
+### CSRF protection disabled {#csrf-disabled}
 
-- **Where** — `application/config/config.php:451` —
-  `$config['csrf_protection'] = FALSE;`. The form at
-  `application/views/guestbook_components/form.php:28` POSTs to
-  `Guestbook/create` with no CSRF token.
-- **Impact** — cross-site request forgery can insert guestbook entries on behalf
-  of any visitor; combined with SEC-1 it is a self-propagating XSS vector.
-- **Fix** — enable `csrf_protection`; `form_open()` will emit the token field.
-- **Anchor** — `#csrf-disabled`.
+`application/config/config.php:451` sets `csrf_protection = FALSE`. The
+`Guestbook/create` POST (`form.php:28` `form_open('Guestbook/create', ...)`)
+accepts any cross-origin submission. Fix: enable CI native CSRF *after* the
+characterization net freezes current tokenless-accept behavior. Severity:
+**Critical**.
 
-### SEC-5 Database errors exposed in non-production
+### Stored XSS in timeline {#stored-xss}
 
-- **Where** — `application/config/database.php:85` —
-  `'db_debug' => (ENVIRONMENT !== 'production')`, and `index.php:56` defaults
-  `ENVIRONMENT` to `development`. Full SQL error output is shown unless the deploy
-  explicitly sets `CI_ENV=production`.
-- **Impact** — schema/credential leakage via error pages on a misconfigured host.
-- **Anchor** — `#db-debug-leak`.
+`application/views/guestbook_components/timeline.php:29,30,33` echo stored `name`,
+`email`, and `message` with **no output encoding**:
 
-## High — correctness bugs (behavior to freeze before fixing)
+```php
+<a href="#"><?php echo $message['name']; ?></a>
+<span>(<?php echo $message['email']; ?>)</span>
+<p><?php echo $message['message']; ?></p>
+```
 
-### BUG-1 Timeline always shows the current time, never the message time
+Input-side `xss_clean|strip_tags` (controller) is not a substitute for output
+encoding and can be bypassed. Any stored payload executes in every future
+visitor's browser. Fix: `html_escape()`/`htmlspecialchars()` at the output seam.
+Severity: **Critical**.
 
-- **Where** — `application/views/guestbook_components/timeline.php:23-24` —
-  `date('d-m-y', time($message['received_on']))`. `time()` ignores its argument
-  and returns *now*; the stored `received_on` is discarded, so every entry is
-  stamped with page-render time. Intended call is `strtotime()` /
-  `date(fmt, strtotime($message['received_on']))`.
-- **Impact** — timeline timestamps are meaningless. Characterize as-is, then fix.
-- **Anchor** — `#timeline-time-bug`.
+## High — security & correctness
 
-### BUG-2 Persistence reports success unconditionally
+### Database error leakage in non-production {#db-debug-leak}
 
-- **Where** — `application/models/Guestbook_messages.php:18-26` — `set_message()`
-  calls `$this->db->insert(...)` and `return true;` without checking the result.
-  On a failed insert the UI still renders the green "message has been processed"
-  banner (`views/guestbook_components/form.php:8-11`).
-- **Impact** — silent data loss presented to the user as success.
-- **Anchor** — `#silent-insert-success`.
+`application/config/database.php:85` sets `db_debug => (ENVIRONMENT !== 'production')`
+and `index.php:56` defaults `ENVIRONMENT` to `development` when `CI_ENV` is unset.
+Any misconfigured deploy leaks full SQL errors (schema, queries) to clients. Fix:
+force `db_debug = FALSE` outside dev and set `CI_ENV=production`. Severity: **High**.
 
-### BUG-3 Model constructor drops the parent call
+### Timeline date bug — `time()` misused {#timeline-time-bug}
 
-- **Where** — `application/models/Guestbook_messages.php:6` — empty
-  `__construct()` with no `parent::__construct()`. Works only by CI's `__get`
-  magic delegating `$this->db`/`$this->input` to the singleton; fragile and will
-  break under any change that relies on `CI_Model` initialization.
-- **Enabling coupling** — `$this->db` survives only because `database` is globally
-  autoloaded (`application/config/autoload.php:61`), not because the model loads it.
-  The two debts are linked: fixing one without the other breaks data access.
-- **Anchor** — `#model-ctor`.
+`timeline.php:23-24` calls `date('d-m-y', time($message['received_on']))`.
+`time()` ignores its argument and returns *now*, so every row renders the current
+timestamp, not when it was posted. Intended: `strtotime($message['received_on'])`.
+Severity: **High** (data displayed is wrong for every message).
 
-## Medium — coupling and maintainability
+### Silent insert success {#silent-insert-success}
 
-### DEBT-1 Active Record coupling (no repository port)
+`application/models/Guestbook_messages.php:24-26` calls `$this->db->insert()` and
+unconditionally `return true;` — a failed insert still reports success to the
+user and shows the green banner. No error is checked or surfaced. Severity: **High**.
 
-- **Where** — `application/models/Guestbook_messages.php:11-24` calls
-  `$this->db->order_by/get/insert` directly. Storage logic is welded to CI Active
-  Record; the domain cannot be tested or re-platformed in isolation.
-- **Strangler Fig** — see STR-1 below. Tracked by `tsk-003`.
-- **Anchor** — `#active-record-coupling`.
+### Model constructor bypasses parent {#model-ctor}
 
-### DEBT-2 No test coverage
+`Guestbook_messages.php:6-7` defines an empty `__construct()` that does **not**
+call `parent::__construct()`. It works only because the model touches `$this->db`
+/ `$this->input` lazily via CI magic; it is fragile and non-idiomatic. Severity:
+**High** (latent breakage on any CI internals change).
 
-- **Where** — no `phpunit.xml` or wired PHPUnit suite anywhere under
-  `application/`. `application/tests/schema/MessagesSchemaProvisioningTest.php`
-  now exists as a standalone `tsk-001` acceptance gate — a static, DB-connection-free
-  script run via `php <file>` (observed: exits 0, 3 passed / 0 failed / 1 deferred)
-  — but it is not a PHPUnit test and does not exercise the sign/list flow — the
-  characterization net itself (`tsk-002`) is still absent.
-- **Impact** — every refactor is blind. This is the blast zone; nothing can be
-  safely changed until characterization tests exist. Tracked by `tsk-002`.
-- **Anchor** — `#no-test-coverage`.
+## Medium — architecture & process
 
-### DEBT-3 No reproducible environment
+### Active Record coupling — no persistence port {#active-record-coupling}
 
-- **Where** — no `Dockerfile`/`docker-compose.yml`; runtime (PHP 5.6-era, MySQL)
-  is implicit and unpinned. Behavior cannot be reproduced for characterization.
-  `schema/messages.sql` (the versioned DDL `tsk-001` delivers) has now landed —
-  a forward-only, idempotent-by-construction `CREATE TABLE IF NOT EXISTS
-  messages (...)` matching the insert shape in `Guestbook_messages.php` and
-  the charset/collation in `application/config/database.php`. See
-  `files/schema/messages.sql.md`. This is an **artifact-only** delivery: no
-  live database or test container exists yet, so forward-apply, idempotent
-  re-apply, and rollback are verified only statically (by reading the DDL),
-  not executed. Live execution is `[deferred: tsk-002]`, the frozen container
-  this schema is meant to seed on first boot.
-- **Impact** — the container/runtime pinning itself (`tsk-002`) is still
-  outstanding; only the DDL half of this debt item is resolved. Tracked by
-  `tsk-002` for the remaining reproducible-runtime and live-verification work.
-- **Anchor** — `#no-reproducible-env`.
+`Guestbook_messages.php` is bound directly to CI Active Record
+(`$this->db->order_by/get/insert`). Domain logic cannot be tested or moved
+without CI. No repository interface. This is Strangler seam **STR-1**. Severity:
+**Medium**.
 
-### DEBT-6 No CI pipeline to enforce the standard matrix
+### No behavioral test coverage {#no-test-coverage}
 
-- **Where** — no `.github/workflows`, no CI config anywhere in the repo. The commit
-  history's "CI" (e.g. `e8cc660`) refers to CodeIgniter form-validation, not
-  continuous integration.
-- **Impact** — every `CI blocking` / `CI warning` enforcement in `standards.md` is
-  aspirational; nothing gates a PR today. The characterization net (`tsk-002`) and
-  the security gates (SEC-1/SEC-4) have no runner to execute against. Stand up a
-  pipeline before promoting any `Pending` rule to blocking.
-- **Anchor** — `#no-ci-pipeline`.
+The only test (`MessagesSchemaProvisioningTest.php`) is a static schema check.
+Controller, model, and views have **zero** coverage — the blast zone for any
+refactor. A characterization net around the sign/list flow must land before the
+XSS/CSRF/encoding fixes. Severity: **Medium** (gates all hardening).
 
-### DEBT-4 Outdated, end-of-life framework
+### Composer manifest unresolvable / toolchain not installed {#composer-manifest-unresolvable}
 
-- **Where** — `system/core/CodeIgniter.php:58` → CI `3.1.5` (2017); PHP floor
-  `>=5.3.7` in `composer.json`. Both series are end-of-life with no security
-  patches.
-- **Anchor** — `#eol-framework`.
+`composer.json` declares `phpunit/phpunit 4|5` and `vfsStream`, but no `vendor/`
+is installed, `composer_autoload = FALSE` (`config.php:139`), and there is no
+`composer.lock`. PHPUnit is not runnable; the schema test is a hand-rolled
+standalone script for exactly this reason. Blocks any real test suite. Severity:
+**High** (blocks the characterization net).
 
-### DEBT-5 Hardcoded route target and UI typos
+### End-of-life framework {#eol-framework}
 
-- **Where** — `form.php:28` hardcodes `form_open('Guestbook/create')` instead of
-  a named route/`site_url`. `form.php:2` ships user-facing typos ("Pleasee fill
-  in the fallowing form"). Low risk, high visibility.
-- **Anchor** — `#minor-polish`.
+CodeIgniter 3.1.5 (`system/core/CodeIgniter.php:58`) on PHP `>=5.3.7`. CI3 and
+these PHP versions are past end-of-life; no security patches. Long-term: migrate.
+Severity: **Medium**.
+
+### No CI pipeline {#no-ci-pipeline}
+
+No CI config on disk (no `.github/`, no pipeline YAML at root). Every `Active`
+and `Pending` gate is currently manual. Severity: **Medium**.
+
+### No reproducible environment {#no-reproducible-env}
+
+No Docker/compose or pinned runtime on disk. `schema/messages.sql` exists and its
+static gate passes, but there is no committed way to stand up PHP+MySQL to run
+DDL or the app deterministically. Idempotent re-apply and rollback are unverified
+against a live DB. Severity: **Medium**.
+
+## Strangler Fig seams
+
+| ID | Current coupling | Proposed boundary | Migration risk |
+| :--- | :--- | :--- | :--- |
+| STR-1 | Model bound to CI Active Record (`#active-record-coupling`) | `GuestbookRepository` port + CI-backed adapter | Low — model surface is 2 methods; freeze via characterization net first |
+| STR-2 | Raw echo of stored data in `timeline.php` (`#stored-xss`) | Output-encoding boundary (escape helper at render) | Medium — changes rendered HTML; land after net freezes current output |
+| STR-3 | Validation rules inlined in `Guestbook::create()` | Extract a validation/sanitization guard service | Medium — behavior-preserving move; net must exist first |
 
 ## Dead / unused code
 
-### ~~DEAD-1 Stock CI Welcome demo, unreachable~~ — RESOLVED by `tsk-010`
-
-- **Was** — `application/controllers/Welcome.php` and
-  `application/views/welcome_message.php`, the stock CI demo, unreachable via
-  routes (`default_controller` is `guestbook`). Candidate for removal after
-  confirming no external links.
-- **Resolution** — both files deleted by `tsk-010`; no route, link, or config
-  referenced `Welcome`/`welcome_message` in product code, so removal is
-  behavior-preserving. `default_controller = 'guestbook'` is unchanged.
-- **Anchor** — `#dead--unused-code` (kept for `tsk-010` traceability).
-
-## Strangler Fig decoupling points
-
-### STR-1 GuestbookRepository port (persistence seam)
-
-- **Current coupling** — controller/model bound to CI Active Record `$this->db`
-  (`Guestbook_messages.php:11,12,24`).
-- **Proposed boundary** — a `GuestbookRepository` interface with `all()` /
-  `add(entry)`; keep CI Active Record as the first adapter behind it.
-- **Migration risk** — Low/Medium. Behavior-preserving; requires DEBT-2 tests
-  green first so the swap is verifiable. Maps directly to `tsk-003`.
-
-### STR-2 Output-encoding boundary (view seam)
-
-- **Current coupling** — raw `echo` of user data in `timeline.php`.
-- **Proposed boundary** — a view-side escaping helper applied to every dynamic
-  field; single chokepoint for SEC-1. Enables enabling the output-encoding gate.
-- **Migration risk** — Low, but changes rendered bytes — sequence after DEBT-2.
-
-### STR-3 Validation/sanitization service (input seam)
-
-- **Current coupling** — validation rules inlined in `Guestbook::create()`
-  (`Guestbook.php:26-28`). Spam scoring (`tsk-004`) has nowhere clean to live.
-- **Proposed boundary** — extract a submission-guard service behind the
-  repository port so validation + spam scoring compose. Maps to `tsk-004`.
-- **Migration risk** — Medium; depends on STR-1.
+No product dead code found on disk: the single controller is the routed default,
+the model's two methods are both called, and all three views are loaded. (The
+CodeIgniter demo `Welcome` controller is absent — already removed.) Framework
+`system/` and `user_guide/` are vendor, not product dead code.

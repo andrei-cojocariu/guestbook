@@ -4,9 +4,8 @@ implemented_by:
   - application/controllers/Guestbook.php
   - application/views/guestbook_components/form.php
   - application/models/Guestbook_messages.php
-  - application/config/config.php
-tested_by:
-  - application/tests/feature/CsrfProtectionTest.php
+  - application/config/routes.php
+tested_by: []
 ---
 
 # Feature: Submit a guestbook message
@@ -17,12 +16,13 @@ tested_by:
 
 ## Details
 
-Server-side validation and sanitization run in `Guestbook::create()` via CI
-`form_validation`: `trim|required|min_length[3]|xss_clean|strip_tags` (name),
+`Guestbook::create()` loads `form_validation` and the `security` helper, then
+applies, per field: `trim|required|min_length[3]|xss_clean|strip_tags` (name),
 `trim|required|valid_email|xss_clean|strip_tags` (email),
-`trim|required|min_length[5]|xss_clean|strip_tags` (message). Client-side rules
-mirror these through `data-rule-*` attributes consumed by jQuery Validate. On
-success the model inserts the row and the form shows a success banner.
+`trim|required|min_length[5]|xss_clean|strip_tags` (message). On success the model
+inserts the row and the form shows a green success banner; on failure inline
+errors render next to the offending fields. Client-side `data-rule-*` attributes
+mirror the server rules.
 
 ## Scenario: Valid submission is stored and acknowledged
 
@@ -57,64 +57,10 @@ Then the message is not stored
 And an inline "valid email" error is shown on the email field
 ```
 
-## Hardening: CSRF protection on the create form (SEC-4)
+## Known deviations (current behavior — see legacy_debt.md)
 
-*Target behavior after the Seam 3 CSRF fix. Uses CodeIgniter's native
-`csrf_protection` — `form_open()` emits the hidden token and the framework rejects
-a tokenless or stale POST before `Guestbook::create()` runs. No bespoke CSRF code.
-This changes POST acceptance, so it lands **after** the characterization net freezes
-the current tokenless-accept behavior.*
-
-## Scenario: Submission with a valid CSRF token is accepted
-
-```gherkin
-Given I have loaded the guestbook homepage in a session
-And the create form carries the CSRF hidden token emitted by form_open()
-And I enter a valid name, email and message
-When I submit the form with the matching CSRF token
-Then the request reaches Guestbook::create()
-And my message is stored
-And I see the success banner
-```
-
-## Scenario: Submission with a missing CSRF token is rejected
-
-```gherkin
-Given I POST to Guestbook/create with valid field values
-And the request carries no CSRF token
-When the request is processed
-Then CodeIgniter rejects it before the controller action runs
-And the response is an HTTP 403 (CSRF) error
-And no message is stored
-```
-
-## Scenario: Submission with an invalid or stale CSRF token is rejected
-
-```gherkin
-Given I POST to Guestbook/create with valid field values
-And the request carries a CSRF token that does not match the session token
-When the request is processed
-Then CodeIgniter rejects it before the controller action runs
-And the response is an HTTP 403 (CSRF) error
-And no message is stored
-```
-
-## Scenario → intended test mapping (1:1)
-
-| Scenario | Intended test |
-| :--- | :--- |
-| Submission with a valid CSRF token is accepted | `CsrfProtectionTest::test_valid_token_accepted` |
-| Submission with a missing CSRF token is rejected | `CsrfProtectionTest::test_missing_token_rejected` |
-| Submission with an invalid or stale CSRF token is rejected | `CsrfProtectionTest::test_invalid_token_rejected` |
-
-## Known deviations (frozen behavior — see legacy_debt.md)
-
-*Current, pre-fix behavior — captured by `characterization-baseline.md` until the
-hardening scenarios supersede them.*
-
-- A failed insert still reports success (`#silent-insert-success`). Frozen as a bug;
-  not addressed by this design.
-- No CSRF token protects this POST (`#csrf-disabled`) — fixed by the Seam 3
-  hardening scenarios above once the net is green.
-- Stored values are re-rendered without output encoding (`#stored-xss`) — fixed in
-  `timeline-rendering.md` (Seam 2).
+- No CSRF token protects the `Guestbook/create` POST (`#csrf-disabled`).
+- A failed insert still reports success (`#silent-insert-success`) — the model
+  returns `true` unconditionally, so the success banner can be shown for a
+  message that was never stored.
+- There is no automated test covering this flow (`#no-test-coverage`).

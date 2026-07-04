@@ -2,26 +2,27 @@
 path: application/config/database.php
 part_of:
   - message-persistence
+  - secret-management
 used_by:
-  - application/models/Guestbook_messages.php
+  - application/config/autoload.php
 touches: []
 ---
 
 # File: application/config/database.php
 
-CodeIgniter database connection config for the `default` group.
+The `default` connection group. Driver `mysqli`, database `guestbook`, charset
+`utf8` / `utf8_general_ci`, query builder enabled.
 
 ## Notes / debt
 
-- `#hardcoded-db-credentials` (CRITICAL) — `username='root'`,
-  `password='Start123!'`, `database='guestbook'` at lines 79-81. Real committed
-  secret; rotate and purge from history.
-- `#db-debug-leak` — `db_debug` follows `ENVIRONMENT`, which defaults to
-  `development`; SQL errors surface unless `CI_ENV=production` is set.
-- Driver is `mysqli`; `stricton=FALSE`, `encrypt=FALSE`.
+- **Critical:** commits DB credentials in cleartext — `username => 'root'`,
+  `password => 'Start123!'` (lines 79-80) (`#hardcoded-db-credentials`).
+- **High:** `db_debug => (ENVIRONMENT !== 'production')` (line 85) leaks SQL
+  errors whenever `ENVIRONMENT` is not `production` (defaults to `development`)
+  (`#db-debug-leak`).
+- Charset/collation here are the contract the `messages.sql` gate asserts against.
 
 ## Blast radius
 
-Every DB operation depends on this file. Credential rotation or driver changes
-affect all persistence. Storage boundary work (`STR-1`) should externalize these
-values into environment configuration.
+Loaded on every request via the auto-loaded `database` library. A change to
+credentials, driver, or charset affects all persistence and the schema gate.

@@ -9,18 +9,17 @@ touches: []
 
 # File: application/views/guestbook_components/timeline.php
 
-Renders the "Previous Messages" list by iterating `$messages`.
+The "Previous Messages" list partial. Loops `$messages` and prints each row's
+date/time, name, email, and message body.
 
 ## Notes / debt
 
-- `#stored-xss` (CRITICAL) — `name`, `email`, `message` are echoed unescaped at
-  lines 29-33. No `html_escape()` at the output boundary. This is Strangler Fig
-  seam `STR-2`.
-- `#timeline-time-bug` — `date(fmt, time($message['received_on']))` at lines
-  23-24; `time()` ignores its argument, so every row is stamped with render time.
+- **Critical:** echoes stored `name` (line 29), `email` (line 30) and `message`
+  (line 33) with no output encoding — stored XSS (`#stored-xss`, STR-2).
+- **High:** date uses `time($message['received_on'])` (lines 23-24); `time()`
+  ignores its argument, so every row shows the current time (`#timeline-time-bug`).
 
 ## Blast radius
 
-Presentation-only, but the direct rendering point of untrusted stored data — the
-sink for the app's most severe security finding. Any escaping change alters
-rendered output and must be sequenced after characterization tests exist.
+Only reached when `$messages` is non-empty. This is the primary sink for
+untrusted stored data — the highest-priority hardening target in the tree.

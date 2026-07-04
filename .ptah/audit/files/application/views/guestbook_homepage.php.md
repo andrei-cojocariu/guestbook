@@ -8,22 +8,21 @@ used_by:
 touches:
   - application/views/guestbook_components/form.php
   - application/views/guestbook_components/timeline.php
-  - application/views/template/metadata.php
-  - application/views/template/css.php
-  - application/views/template/js.php
 ---
 
 # File: application/views/guestbook_homepage.php
 
-Page shell. Loads the `template/*` head partials, then composes the form and —
-only when `$messages` is non-empty — the timeline component.
+Top-level page shell. Loads `template/metadata`, `template/css`, `template/js`
+partials, then the `form` partial, then the `timeline` partial only when
+`$messages` is non-empty (otherwise emits a `<br>` spacer).
 
-## Notes
+## Notes / debt
 
-- Conditional include hides the timeline when there are no messages.
-- No user data is echoed directly here; escaping concerns live in the components.
+- Uses `site_url()` and `base_url()` from the auto-loaded `url` helper.
+- Guards the timeline on `$messages` truthiness — the empty-state branch of the
+  timeline-rendering feature.
 
 ## Blast radius
 
-Layout glue. Removing a partial include drops that feature's UI entirely; the
-`if ($messages)` guard is the empty-state contract for timeline rendering.
+Rendered by both `index()` and `create()`. Changing the partial composition or
+the empty-state guard affects how both features present.

@@ -4,29 +4,25 @@ part_of:
   - message-submission
 used_by:
   - application/views/guestbook_homepage.php
-touches:
-  - application/controllers/Guestbook.php
+touches: []
 ---
 
 # File: application/views/guestbook_components/form.php
 
-The submission form and its success/error banners.
-
-## Responsibilities
-
-- Renders success/error alert based on the `$valid` flag.
-- `form_open('Guestbook/create', ...)` plus `form_input`/`form_textarea`/
-  `form_submit` helpers, with `data-rule-*` attributes for client-side validation.
-- Echoes CI `form_error()` messages inline per field.
+The submission form partial. Renders success/error banners from the `$valid`
+flag, opens the form with `form_open('Guestbook/create', ...)`, and emits
+`name`, `email`, and `message` inputs with client-side `data-rule-*` validation
+attributes plus `form_error()` inline errors.
 
 ## Notes / debt
 
-- `#csrf-disabled` — POSTs without a CSRF token (config-level).
-- `#minor-polish` — hardcoded route `'Guestbook/create'`; user-facing typos
-  ("Pleasee fill in the fallowing form").
+- `form_open()` emits no CSRF token because `csrf_protection = FALSE`
+  (`#csrf-disabled`).
+- Static copy typos: heading "Pleasee fill in the fallowing form" (cosmetic).
+- The `elseif ($valid === false)` error branch renders on any non-success page
+  load where `$valid` is explicitly `false`.
 
 ## Blast radius
 
-Front-end of message submission. Field `name` attributes here must stay in lockstep
-with the controller's validation keys; renaming a field silently breaks validation
-and persistence.
+Sole input surface for the submission feature. Changing field names here breaks
+the controller's validation rules and the model's insert shape.

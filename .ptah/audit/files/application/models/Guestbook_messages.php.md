@@ -6,28 +6,31 @@ part_of:
   - timeline-rendering
 used_by:
   - application/controllers/Guestbook.php
-touches: []
+touches:
+  - schema/messages.sql
 ---
 
 # File: application/models/Guestbook_messages.php
 
-CI Active Record data access for the `messages` table.
+`CI_Model` subclass; the only persistence surface for the app.
 
 ## Responsibilities
 
-- `get_messages()` — `order_by('received_on','DESC')` then `get('messages')`,
+- `get_messages()` reads the `messages` table `ORDER BY received_on DESC` and
   returns `result_array()`.
-- `set_message()` — inserts `name`/`email`/`message` from `$this->input->post()`.
+- `set_message()` inserts `name`, `email`, `message` (from `$this->input->post`)
+  and returns `true`.
 
 ## Notes / debt
 
-- `#silent-insert-success` — returns `true` without checking the insert result.
-- `#model-ctor` — empty constructor omits `parent::__construct()`.
-- `#active-record-coupling` — direct `$this->db`; this is Strangler Fig seam
-  `STR-1` (introduce `GuestbookRepository`), tracked by `tsk-003`.
+- Bound directly to CI Active Record — no repository port (`#active-record-coupling`,
+  STR-1).
+- `set_message()` returns `true` unconditionally; a failed insert is reported as
+  success (`#silent-insert-success`).
+- Empty `__construct()` omits `parent::__construct()` (`#model-ctor`).
+- Insert shape must stay `name, email, message` to match `schema/messages.sql`.
 
 ## Blast radius
 
-The single persistence chokepoint. A change here can break both reading the
-timeline and storing submissions. Schema assumptions (`received_on` default) live
-implicitly here.
+Any change to the read order or insert shape affects timeline rendering,
+submission, and the schema gate that asserts this exact shape.
