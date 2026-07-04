@@ -4,7 +4,7 @@ title: Characterization net around the sign and list flow
 type: stabilize
 priority: P0-Critical
 severity: high
-status: blocked
+status: awaiting-human-merge
 depends_on: [tsk-002]
 rejection_count: 0
 source: audit/legacy_debt.md#no-test-coverage
