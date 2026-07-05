@@ -4,7 +4,7 @@ title: Add an output-encoding boundary to the timeline render (STR-2)
 type: decouple
 priority: P0-Critical
 severity: high
-status: blocked
+status: awaiting-human-merge
 depends_on: [tsk-003]
 rejection_count: 0
 source: audit/legacy_debt.md#stored-xss

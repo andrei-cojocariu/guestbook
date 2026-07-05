@@ -186,6 +186,58 @@ and line. Severity reflects blast radius on a live deployment.
   in the fallowing form"). Low risk, high visibility.
 - **Anchor** — `#minor-polish`.
 
+## Low — UX / accessibility debt (ux-engineer-worker, tsk-005 review)
+
+Not introduced by `tsk-005` (the diff is escaping-only, no markup change) — logged
+here because they are systemic, pre-existing, and out of that task's scope.
+
+### UX-1 Form fields have no `<label>`, only placeholders
+
+- **Where** — `application/views/guestbook_components/form.php:33-79` — `name`,
+  `email`, `message` inputs are labeled only via `placeholder`, no `<label for>`
+  associated to the `form_input()`/`form_textarea()` ids.
+- **Impact** — placeholder text disappears on focus/input, is not reliably
+  announced as a label by all assistive tech, and has weaker contrast than body
+  text — WCAG 1.3.1 (Info and Relationships) / 3.3.2 (Labels or Instructions) risk.
+- **Fix** — add visible `<label for="...">` per field (can be visually
+  de-emphasized via the design system's canonical form-field component, not a
+  one-off).
+- **Anchor** — `#placeholder-only-labels`.
+
+### UX-2 Dead link wraps the commenter name in the timeline
+
+- **Where** — `application/views/guestbook_components/timeline.php:29` —
+  `<a href="#"><?php echo html_escape($message['name']); ?></a>`.
+- **Impact** — a focusable, keyboard-tabbable element that does nothing
+  (mystery-meat navigation); on `#` it also risks a page-top scroll jump. Adds a
+  no-op stop in tab order for every timeline entry.
+- **Fix** — either give it a real destination (e.g. mailto/profile) or render as
+  plain text (`<span>`/`<strong>`), not an anchor.
+- **Anchor** — `#dead-link-username`.
+
+### UX-3 Alert dismiss button has no accessible name
+
+- **Where** — `application/views/guestbook_components/form.php:8,17` — `<button
+  type="button" class="close" data-dismiss="alert">×</button>`.
+- **Impact** — the glyph `×` is not reliably announced by screen readers as
+  "Close"; Bootstrap's own docs recommend `<span aria-hidden="true">&times;</span>`
+  plus a `sr-only`/`aria-label="Close"` text. Currently neither is present.
+- **Fix** — add `aria-label="Close"` to the button and `aria-hidden="true"` to the
+  glyph span.
+- **Anchor** — `#unlabeled-close-button`.
+
+### UX-4 No real empty state when there are no messages yet
+
+- **Where** — `application/views/guestbook_homepage.php:16-21` — falls back to
+  `echo '<br>';` when `$messages` is empty instead of rendering the timeline
+  `.box`.
+- **Impact** — first-time visitors get an unexplained gap with no affordance
+  ("Be the first to sign the guestbook" or similar); looks broken rather than
+  intentional.
+- **Fix** — render the `.box` shell with an empty-state message instead of
+  skipping it entirely.
+- **Anchor** — `#missing-empty-state`.
+
 ## DevOps / package audit — discovered building the frozen runtime (tsk-002)
 
 ### DEBT-7 Composer manifest is unresolvable on every Composer major version
