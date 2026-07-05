@@ -22,6 +22,15 @@ The app is published at `http://localhost:8080/`, MySQL at `localhost:13306`.
 See `Dockerfile` and `docker-compose.yml` for the pinned versions and the
 `messages` table schema (`schema/messages.sql`) seeded on first boot.
 
+CSRF protection is enabled (`application/config/config.php`:
+`csrf_protection = TRUE`) — a POST to `Guestbook/create` must carry the
+`csrf_test_name` token field and matching `csrf_cookie_name` cookie that a
+prior GET of the homepage returns, or CodeIgniter rejects it with a 403
+before the controller runs. Submitting the rendered form in a browser needs
+no extra step (`form_open()` emits the token automatically); a bare `curl`
+POST does not, and will be rejected. See
+`.ptah/audit/legacy_debt.md` (`#csrf-disabled`, resolved) for detail.
+
 **PHPUnit** is available inside the image as a pinned container-level binary
 (`vendor/bin/phpunit` / `/usr/local/bin/phpunit`, PHPUnit 5.7.27) — installed
 independently of Composer because `composer.json`'s `require-dev` is

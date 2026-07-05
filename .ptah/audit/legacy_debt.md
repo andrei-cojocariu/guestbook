@@ -34,15 +34,29 @@ and line. Severity reflects blast radius on a live deployment.
   signing that relies on it. Must be rotated and externalized.
 - **Anchor** — `#hardcoded-encryption-key`.
 
-### SEC-4 CSRF protection disabled on a state-changing form
+### ~~SEC-4 CSRF protection disabled on a state-changing form~~ — RESOLVED (`tsk-006`)
 
-- **Where** — `application/config/config.php:451` —
+- **Was** — `application/config/config.php:451` —
   `$config['csrf_protection'] = FALSE;`. The form at
   `application/views/guestbook_components/form.php:28` POSTs to
   `Guestbook/create` with no CSRF token.
-- **Impact** — cross-site request forgery can insert guestbook entries on behalf
-  of any visitor; combined with SEC-1 it is a self-propagating XSS vector.
-- **Fix** — enable `csrf_protection`; `form_open()` will emit the token field.
+- **Impact (historical)** — cross-site request forgery could insert guestbook
+  entries on behalf of any visitor; combined with SEC-1 (still open) it was a
+  self-propagating XSS vector.
+- **Resolution (`tsk-006`)** — `csrf_protection` flipped to `TRUE`
+  (`application/config/config.php:451`). CI3's native
+  `CI_Security::csrf_verify()` (`system/core/Security.php:206-249`) now runs on
+  every POST and rejects (403) any request whose `$_POST[csrf_token_name]`
+  does not `hash_equals()` the `$_COOKIE[csrf_cookie_name]` pair;
+  `csrf_exclude_uris` is empty, so `Guestbook/create` is covered. No template
+  edit was needed — `form_open()` already auto-emits the hidden token field
+  and sets the cookie once `csrf_protection` is on
+  (`system/helpers/form_helper.php:101-121`). The `tsk-003` characterization
+  net was re-baselined to the token-required contract in the same task (see
+  `features/characterization-baseline.md`, `features/message-submission.md`);
+  per commit `50d29ec`'s message, re-verified green in `ci-guestbook:frozen`
+  (8/8, 45 assertions) — not independently re-run by this docs-sync pass (a
+  concurrent worktree held the fixed `guestbook-frozen-db` container name).
 - **Anchor** — `#csrf-disabled`.
 
 ### SEC-5 Database errors exposed in non-production

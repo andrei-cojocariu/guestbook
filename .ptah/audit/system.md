@@ -51,6 +51,9 @@ through a form; entries are persisted to MySQL and rendered back as a timeline.
 - No `.github/workflows` / CI config: the "CI" in the commit history refers to
   CodeIgniter form-validation (`form_validation`), not a continuous-integration
   pipeline. No automated gate exists in the repo today.
+- **Updated (`tsk-006`, landed):** `application/config/config.php:451`'s
+  `csrf_protection` flipped `FALSE` -> `TRUE` — see Seam 3 below (now
+  delivered) and `legacy_debt.md` SEC-4 (resolved).
 
 ## Architecture
 
@@ -137,7 +140,7 @@ going through the interface.
   durable defense against stored XSS and lives at one auditable location.
 - **Behavior-changing.** Emits different bytes — must land **after** tsk-002.
 
-### Seam 3 — CSRF via CI's native mechanism (SEC-4)
+### Seam 3 — CSRF via CI's native mechanism (SEC-4) — delivered (`tsk-006`)
 
 - **Boundary.** Enable CodeIgniter's built-in `csrf_protection` in `config.php`;
   `form_open()` already emits the hidden token field, so the create form
@@ -147,6 +150,12 @@ going through the interface.
   (standards.md: *CSRF protection*.) No hand-rolled CSRF scheme.
 - **Behavior-changing.** A tokenless POST now fails — must land **after** tsk-002
   (the characterization net records the *current* tokenless-accept behavior first).
+- **Delivered (`tsk-006`).** `csrf_protection = TRUE`
+  (`application/config/config.php:451`); no template edit was needed —
+  `form_open()` already met all three conditions for auto-emitting the token.
+  The `tsk-003` net was re-baselined to the token-required contract in the
+  same task. See `legacy_debt.md` SEC-4 (resolved) and
+  `features/characterization-baseline.md`.
 
 ### Seam 4 — Env-driven secret management (SEC-2 / SEC-3, and SEC-5)
 

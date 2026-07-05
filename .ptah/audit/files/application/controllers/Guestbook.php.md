@@ -28,7 +28,11 @@ Product entry point. `CI_Controller` subclass; the routed default controller.
 - Validation rules are inlined here (Strangler seam STR-3).
 - Talks to storage only through the model, but the model is Active-Record bound
   (`#active-record-coupling`).
-- No CSRF token is required for the `create` POST (`#csrf-disabled`).
+- ~~No CSRF token is required for the `create` POST (`#csrf-disabled`)~~ —
+  **RESOLVED (`tsk-006`)**: `csrf_protection = TRUE`
+  (`application/config/config.php:451`) now runs CI's native
+  `CI_Security::csrf_verify()` ahead of this controller on every POST; see
+  `files/application/config/config.php.md`.
 - Trusts the model's return value, which is always `true` (`#silent-insert-success`).
 
 ## Blast radius

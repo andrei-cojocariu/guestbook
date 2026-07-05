@@ -54,12 +54,22 @@ never `require`d twice in-process (which it cannot survive):
   exercise of `Guestbook_messages::set_message()` against a minimal db
   stub instead of an HTTP round-trip — see "Feedback-loop findings" below.
 
+**Re-baselined for `tsk-006`** (`csrf_protection` flipped `FALSE` -> `TRUE`,
+`application/config/config.php:451`): `fetchCsrfPair()` performs a GET of `/`
+and scrapes the `csrf_test_name` hidden field + `csrf_cookie_name` `Set-Cookie`
+CI3's `form_open()`/`csrf_set_cookie()` now emit, and `requestWithCsrf()`
+attaches that pair to every POST that is meant to legitimately succeed
+(valid-submission, stored-XSS-characterization, and each validation-rejection
+case). `test_tokenless_post_currently_accepted` is renamed to
+`test_post_without_valid_csrf_token_is_rejected` and now asserts a `403` with
+zero rows stored, per the amended `characterization-baseline.md` scenario.
+
 ## Scenario → test mapping (verbatim from characterization-baseline.md)
 
 | Scenario | Test |
 | :--- | :--- |
 | A valid submission is stored and acknowledged | `test_valid_submission_stored_and_acknowledged` |
-| A tokenless POST is currently accepted | `test_tokenless_post_currently_accepted` |
+| A POST without a valid CSRF token is rejected | `test_post_without_valid_csrf_token_is_rejected` |
 | Stored HTML is currently echoed unescaped | `test_stored_html_currently_unescaped` |
 | Timeline timestamp is the render time, not received_on | `test_timeline_shows_render_time_bug` |
 | A failed insert still reports success | `test_failed_insert_reports_success_bug` |
@@ -103,17 +113,20 @@ behavior; this task's TAC ("the net asserts current output bytes") takes
 priority over the original wording, so the test characterizes the ground
 truth rather than inventing behavior to match an unreachable scenario text.
 
-## Current status (observed)
+## Current status
 
-Run live against `ci-guestbook:frozen` (rebuilt from this branch) + a
-disposable `mysql:5.7.44` instance seeded from `schema/messages.sql`:
-`php vendor/bin/phpunit` (config `phpunit.xml`) — **8 passed, 0 failed, 41
-assertions**, repeated twice for determinism. `hooks.lint` (`php -l` across
-`application/`, excluding `tests/`) and `hooks.build` both still exit `0`;
-`hooks.analyze` still reports `phpstan PENDING` (unchanged — DEBT-8/PHP-5.6
-floor). Containers/volumes used for this verification were torn down after
-(`docker compose down -v`; no `ci-guestbook:frozen`/`ptah-tsk003-*`
-containers left running).
+`tsk-003` baseline (superseded scenario wording): run live against
+`ci-guestbook:frozen` + a disposable `mysql:5.7.44` instance — **8 passed, 0
+failed, 41 assertions**, repeated twice for determinism.
+
+`tsk-006` re-baseline (current): per commit `50d29ec`'s message, re-verified
+green in `ci-guestbook:frozen` (PHPUnit 5.7.27 / PHP 5.6.40) — **8 passed, 0
+failed, 45 assertions**. This docs-sync pass did not independently re-run the
+suite: the fixed `guestbook-frozen-db` container name was already in use by a
+concurrent worktree at the time of this pass, so `docker compose run` failed
+on a name conflict before reaching PHPUnit; the count above is the
+test-engineer-worker's own commit-message report, not a result this pass
+observed directly.
 
 ## Blast radius
 

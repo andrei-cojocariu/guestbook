@@ -9,7 +9,7 @@ downstream workers navigate. Stack: CodeIgniter 3.1.5 on PHP `>=5.3.7`, MySQL
 
 | Feature | Doc | Status | Implemented by |
 | :--- | :--- | :--- | :--- |
-| Submit a guestbook message | `features/message-submission.md` | live (+ CSRF hardening, SEC-4) | controller, form view, model, config |
+| Submit a guestbook message | `features/message-submission.md` | live (CSRF hardening delivered, `tsk-006`, SEC-4 resolved) | controller, form view, model, config |
 | Render the message timeline | `features/timeline-rendering.md` | live (+ output-encoding hardening, SEC-1) | controller, model, timeline view, homepage |
 | Persist guestbook messages | `features/message-persistence.md` | live (+ repository port, STR-1) | model |
 | Env-driven secret management | `features/secret-management.md` | planned (SEC-2/3/5) | database.php, config.php, index.php |
@@ -53,7 +53,7 @@ inventions". A spam filter needs a BDD contract authored first.)
 | SEC-1 | `#stored-xss` | Critical |
 | SEC-2 | `#hardcoded-db-credentials` | Critical |
 | SEC-3 | `#hardcoded-encryption-key` | Critical |
-| SEC-4 | `#csrf-disabled` | Critical |
+| SEC-4 | `#csrf-disabled` | Resolved (`tsk-006` — `csrf_protection = TRUE`) |
 | SEC-5 | `#db-debug-leak` | High |
 | BUG-1 | `#timeline-time-bug` | High |
 | BUG-2 | `#silent-insert-success` | High |
@@ -99,6 +99,7 @@ differs from older prose elsewhere in `system.md`/`standards.md`):
 - `tsk-001` → `#no-reproducible-env` (schema/DDL half; done)
 - `tsk-002` → `#no-reproducible-env` (frozen-container half; done, this pass)
 - `tsk-003` → `#no-test-coverage` (characterization net; delivered — see `legacy_debt.md` DEBT-2)
+- `tsk-006` → `#csrf-disabled` / Seam 3 (CSRF hardening; delivered — see `legacy_debt.md` SEC-4)
 - `tsk-007` → `#active-record-coupling` / STR-1 (repository port)
 - `tsk-008` → STR-3 (submission-guard validation service, behind the tsk-007 port; the former `tsk-009` spam feature was de-scoped at GATE 1 — no BDD contract)
 - `tsk-010` → `#dead--unused-code` (resolved — Welcome demo removed)
@@ -125,6 +126,19 @@ resolved for this flow — see `legacy_debt.md` DEBT-2 and
 `files/application/tests/characterization/SignAndListFlowTest.php.md` (which
 also records two feedback-loop findings for the test-engineer-worker where
 verified live behavior diverged from `characterization-baseline.md`'s
-original scenario wording). This is the hard prerequisite gate for `tsk-005`
-(output encoding) and `tsk-006` (CSRF), both still `blocked` pending human
-GATE 1 dispatch.
+original scenario wording). This was the hard prerequisite gate for `tsk-005`
+(output encoding, still open on this branch) and `tsk-006` (CSRF).
+
+`tsk-006` (CSRF hardening) has since landed on top of the net:
+`application/config/config.php`'s `csrf_protection` flipped `FALSE` -> `TRUE`
+(Seam 3 / SEC-4), and the `tsk-003` net was re-baselined in the same task from
+its prior tokenless-accept scenario to a token-required one
+(`test_tokenless_post_currently_accepted` ->
+`test_post_without_valid_csrf_token_is_rejected`; every other POST-issuing
+test now round-trips a scraped CSRF token/cookie pair). See `legacy_debt.md`
+SEC-4 (resolved), `features/characterization-baseline.md`, and
+`features/message-submission.md`. Per the `tsk-006` re-baseline commit's own
+message, re-verified green in `ci-guestbook:frozen` (8/8, 45 assertions);
+this docs-sync pass could not independently re-run the suite (the fixed
+`guestbook-frozen-db` container name was held by a concurrent worktree), so
+that count is reported, not directly observed here.
