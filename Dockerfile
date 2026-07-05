@@ -24,6 +24,23 @@ RUN docker-php-ext-install mysqli mbstring
 # --- Apache: mod_rewrite, pinned per tsk-002 TAC -----------------------------
 RUN a2enmod rewrite
 
+# --- Apache env passthrough for CI_ENV (tsk-004 infra fix) ------------------
+# index.php:56 resolves ENVIRONMENT from $_SERVER['CI_ENV'], not getenv().
+# Under the Apache/mod_php SAPI, getenv('...') reads the process environment
+# directly (confirmed working for DB_HOSTNAME et al.), but $_SERVER is NOT
+# repopulated from that same OS environment per-request -- Apache keeps a
+# separate "subprocess environment" table that mod_php merges into $_SERVER,
+# and it stays empty unless a variable is explicitly named via
+# SetEnv/PassEnv. Without this, CI_ENV=production set at the container level
+# (docker-compose `environment:`/`docker compose run -e CI_ENV=...`) never
+# reaches $_SERVER['CI_ENV'] for a real HTTP request, ENVIRONMENT silently
+# falls back to 'development', and db_debug leaks SQL/connection detail in
+# production -- a genuine deploy-path gap surfaced live by tsk-004's
+# EnvSecretManagementTest (application/tests/config/EnvSecretManagementTest.php,
+# TEST B). Explicitly whitelisting CI_ENV via PassEnv closes it without
+# touching index.php (product code, software-developer-worker's territory).
+RUN echo "PassEnv CI_ENV" > /etc/apache2/conf-enabled/ci-env-passenv.conf
+
 # --- mysqli socket path, so the hardcoded 'localhost' hostname in
 # application/config/database.php:78 actually finds mysqld ------------------
 # mysqli/mysqlnd treat the literal string "localhost" as "connect via local

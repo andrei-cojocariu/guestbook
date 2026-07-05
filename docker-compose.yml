@@ -73,6 +73,21 @@ services:
     # is published from the `db` service definition instead.
     network_mode: "service:db"
     working_dir: /var/www/html
+    # tsk-004 (Seam 4, SEC-2/SEC-3/SEC-5): application/config/database.php
+    # and config.php read DB_HOSTNAME/DB_USERNAME/DB_PASSWORD/DB_DATABASE/
+    # ENCRYPTION_KEY/CI_ENV exclusively via getenv() — no literal is
+    # tracked here or in either config file. `env_file` loads whichever of
+    # those keys are present in the git-ignored `.env` (see `.env.example`
+    # for the full, documented contract) into the container's process
+    # environment for a plain `docker compose up`, with no code change and
+    # no rebuild needed to rotate a value. `docker compose run -e KEY=...`
+    # (used by application/tests/config/EnvSecretManagementTest.php,
+    # tsk-004) overrides any value loaded here, per Compose precedence.
+    # Any key left blank/absent falls back to database.php/config.php's own
+    # non-secret local-dev default — it never falls back to a committed
+    # secret literal.
+    env_file:
+      - .env
     volumes:
       - mysqld-socket:/var/run/mysqld
 

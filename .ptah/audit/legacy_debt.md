@@ -305,6 +305,93 @@ and line. Severity reflects blast radius on a live deployment.
   silently carried forward as if verified.
 - **Anchor** — `#task-numbering-scheme-mismatch`.
 
+### ~~DEBT-11 Apache/mod_php never exposed `CI_ENV` to `$_SERVER`, so `db_debug` silently stayed `TRUE` in production over real HTTP~~ — RESOLVED (tsk-004 infra fix)
+
+- **Where** — `index.php:56` — `define('ENVIRONMENT', isset($_SERVER['CI_ENV']) ?
+  $_SERVER['CI_ENV'] : 'development');`. Discovered live by
+  `application/tests/config/EnvSecretManagementTest.php` (tsk-004, TEST B):
+  `getenv('DB_HOSTNAME')` et al. correctly read the container's OS
+  environment under the `php:5.6.40-apache` mod_php SAPI, but `$_SERVER`
+  is populated from Apache's own *subprocess environment* table for a real
+  HTTP request — a separate mechanism from the process's OS environment —
+  and stays empty unless a variable is explicitly whitelisted via Apache's
+  `SetEnv`/`PassEnv`. Net effect: `CI_ENV=production` set at the container
+  level (`docker-compose environment:` / `docker compose run -e
+  CI_ENV=production`) never reached `$_SERVER['CI_ENV']` for a real
+  browser request, `ENVIRONMENT` silently fell back to `'development'`,
+  and `db_debug` resolved `TRUE` — SQL/connection error detail rendered to
+  the client in what was supposed to be a production deploy, despite the
+  same `database.php` correctly resolving `db_debug=FALSE` for
+  `CI_ENV=production` under the PHP **CLI** SAPI (CLI always imports the
+  environment into `$_SERVER` regardless of Apache's subprocess-env
+  mechanism, masking the gap in a CLI-only check).
+- **Impact** — SEC-5 (`db_debug` leak) was not actually closed by setting
+  `CI_ENV=production` at deploy time for any Apache-served request — a
+  live, exploitable instance of the exact risk SEC-5/DEBT already flagged,
+  now root-caused to the deploy path rather than the config file.
+- **Fix (IaC-only, this task)** — `Dockerfile` now writes
+  `/etc/apache2/conf-enabled/ci-env-passenv.conf` containing
+  `PassEnv CI_ENV`, explicitly forwarding the container's `CI_ENV` into
+  Apache's per-request subprocess environment (and therefore into
+  `$_SERVER`) without touching `index.php` (product code, out of this
+  worker's scope). No other config-file env var needed this treatment —
+  `database.php`/`config.php` read everything else via `getenv()`, which
+  already worked correctly under mod_php.
+- **Verified** — built `ci-guestbook:frozen` with the fix and ran the
+  exact discriminating scenario `EnvSecretManagementTest.php`
+  reproduces, via standalone `docker run` (the fixed, shared
+  `guestbook-frozen-db`/`guestbook-frozen-app` container names from
+  `docker-compose.yml` were held by a concurrent worktree's active compose
+  project during this session — see DEBT-12 — so the compose-orchestrated
+  run itself could not be re-executed here; the standalone reproduction
+  targets the identical Apache/mod_php code path and confirms the fix):
+  `CI_ENV=production` -> `HTTP 500`, **empty body**, no
+  `mysqli`/hostname/"Database Error"/"Unable to connect" text anywhere in
+  the response; `CI_ENV` unset (development default) -> full PHP warning
+  + backtrace rendered, including the connection detail — the same
+  discriminating contrast the test asserts. A full `docker compose`-based
+  re-run of `EnvSecretManagementTest.php` itself is recommended once the
+  DEBT-12 name collision clears, to convert this from a targeted
+  reproduction to the official gate's own green.
+- **Anchor** — `#apache-ci-env-passenv-gap`.
+
+### DEBT-12 Fixed `container_name`s in `docker-compose.yml` collide across concurrent worktree checkouts, blocking parallel `docker compose` verification
+
+- **Where** — `docker-compose.yml` — `db`/`app` services pin
+  `container_name: guestbook-frozen-db` / `guestbook-frozen-app` (tsk-002,
+  intentional, so the hardcoded `localhost` mysqli socket topology and the
+  published `8080`/`13306` ports are predictable). `container_name` is a
+  literal Docker Engine name, global across the whole daemon — it is
+  **not** namespaced per Compose project the way auto-generated names are,
+  so two worktrees/branches running `docker compose up`/`run` against a
+  copy of this same file at the same time (e.g. two agent worktrees, or a
+  developer and CI) collide on `Conflict. The container name
+  "/guestbook-frozen-db" is already in use...` — whichever stack came up
+  first wins; the second cannot build/run/tear down its own copy without
+  first touching (and potentially disrupting) the first stack's
+  containers.
+- **Impact** — this directly blocked a full `docker compose`-based
+  re-verification of the tsk-004 fix (DEBT-11) in this session: a
+  concurrent worktree (`wf_f9900b5d-a30-2`, a `decouple/tsk-005` checkout)
+  held an active `docker compose` project with the same fixed names for
+  the duration. Multiple software-developer-/test-engineer-/devops-worker
+  branches running in parallel worktrees (the norm in this pipeline, per
+  `.ptah/tasks/INDEX.md`'s `concurrency_limit: 4`) cannot safely run
+  `hooks.build`/`hooks.test` concurrently today.
+- **Fix (not applied here — out of tsk-004's scope)** — either (a) drop
+  the fixed `container_name`s and let Compose auto-namespace by project
+  (breaks the hardcoded-`localhost` assumption's predictability, and
+  `application/tests/infra/FrozenRuntimeContainerTest.php`, tsk-002,
+  likely asserts on the fixed names — needs a coordinated check), or (b)
+  derive the project name from a per-checkout value (e.g.
+  `COMPOSE_PROJECT_NAME`/`-p $(basename $PWD)`) and drop
+  `container_name:` in favor of Compose's own `${project}-app`/`${project}-db`
+  naming, updating any hardcoded name references (test assertions, this
+  file) to match. Flagging for the product-owner-worker to schedule as a
+  chore; tsk-004 did not touch `container_name` to keep this change
+  minimal and reviewable.
+- **Anchor** — `#container-name-collision-across-worktrees`.
+
 ## Dead / unused code
 
 ### ~~DEAD-1 Stock CI Welcome demo, unreachable~~ — RESOLVED by `tsk-010`
