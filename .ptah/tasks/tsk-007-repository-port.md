@@ -4,7 +4,7 @@ title: Introduce a repository port around Active Record (STR-1)
 type: decouple
 priority: P2-Debt
 severity: medium
-status: blocked
+status: done
 depends_on: [tsk-003]
 rejection_count: 0
 source: audit/legacy_debt.md#active-record-coupling

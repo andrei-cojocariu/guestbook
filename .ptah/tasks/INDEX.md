@@ -18,11 +18,11 @@ through `depends_on`.
 | tsk-001 | chore | P0-Critical | high | done | — |
 | tsk-002 | chore | P0-Critical | medium | done | tsk-001 |
 | tsk-003 | stabilize | P0-Critical | high | done | tsk-002 |
-| tsk-004 | chore | P0-Critical | high | active | tsk-002 |
+| tsk-004 | chore | P0-Critical | high | audit-failed | tsk-002 |
 | tsk-005 | decouple | P0-Critical | high | awaiting-human-merge | tsk-003 |
-| tsk-006 | chore | P0-Critical | high | active | tsk-003 |
-| tsk-007 | decouple | P2-Debt | medium | active | tsk-003 |
-| tsk-008 | decouple | P2-Debt | medium | blocked | tsk-007 |
+| tsk-006 | chore | P0-Critical | high | awaiting-human-merge | tsk-003 |
+| tsk-007 | decouple | P2-Debt | medium | done | tsk-003 |
+| tsk-008 | decouple | P2-Debt | medium | pending | tsk-007 |
 | tsk-010 | chore | P3-Backlog | low | done | — |
 ```
 
