@@ -12,6 +12,18 @@
   Presence of this file (plus vendor/bin/phpunit being executable) is exactly
   what flips hooks.test from its prior "PENDING, no suite wired yet" stub
   (see the tsk-002 fix, commit 76e7206) to actually invoking PHPUnit.
+
+  tsk-007 (repository port, STR-1) adds the "unit" testsuite below, pointed
+  at the single `<file>` `GuestbookRepositoryContractTest.php` rather than
+  the whole `application/tests/unit` directory: that directory also holds
+  `GuestbookRepositoryPortTest.php`, the software-developer-worker's own
+  standalone, PHPUnit-free script (procedural body, calls `exit()` at the
+  end) — it is explicitly documented as NOT wired into `hooks.test` and MUST
+  NOT be swept in by a `<directory suffix="Test.php">` glob, which would
+  `require` it and abort the whole PHPUnit run via its own `exit()` call.
+  Reuses the characterization suite's own bootstrap (defines
+  PTAH_CHARACTERIZATION_ROOT only) so both suites resolve the project root
+  identically.
 -->
 <phpunit bootstrap="application/tests/characterization/bootstrap.php"
          colors="false"
@@ -22,6 +34,9 @@
     <testsuites>
         <testsuite name="characterization">
             <directory suffix="Test.php">application/tests/characterization</directory>
+        </testsuite>
+        <testsuite name="unit">
+            <file>application/tests/unit/GuestbookRepositoryContractTest.php</file>
         </testsuite>
     </testsuites>
 </phpunit>
