@@ -5,7 +5,8 @@ implemented_by:
   - application/views/guestbook_components/form.php
   - application/models/Guestbook_messages.php
   - application/config/routes.php
-tested_by: []
+tested_by:
+  - application/tests/characterization/SignAndListFlowTest.php
 ---
 
 # Feature: Submit a guestbook message
@@ -63,4 +64,8 @@ And an inline "valid email" error is shown on the email field
 - A failed insert still reports success (`#silent-insert-success`) — the model
   returns `true` unconditionally, so the success banner can be shown for a
   message that was never stored.
-- There is no automated test covering this flow (`#no-test-coverage`).
+- Both deviations above are still present — they are only *characterized*, not
+  fixed, by `application/tests/characterization/SignAndListFlowTest.php`
+  (`tsk-003`; see `characterization-baseline.md` and `legacy_debt.md`
+  `#no-test-coverage`, resolved for this flow). Hardening lands behind the
+  Strangler seams gated on that net staying green.

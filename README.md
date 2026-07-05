@@ -31,3 +31,20 @@ metadata protocol + invalid `mikey179/vfsStream` casing; see
 is committed (generated via Composer 2 with `--no-dev`, so the broken
 require-dev entries are never resolved) so Composer 1's `composer install`
 inside the image installs strictly from the lock instead of re-solving.
+
+## Running the characterization suite
+
+`phpunit.xml` wires the pinned PHPUnit binary to a real, black-box test suite
+(`application/tests/characterization/SignAndListFlowTest.php`) that pins the
+*current* observable behavior of the sign/list flow — bugs and security gaps
+included — as a safety net for upcoming hardening work. It spawns the app's
+own `index.php` behind a `php -S` server and asserts against real HTTP
+responses and what a real MySQL connection actually persisted:
+
+```sh
+docker compose run --rm --build app sh -c 'php vendor/bin/phpunit'
+```
+
+See `.ptah/audit/features/characterization-baseline.md` for the scenarios
+covered and `.ptah/audit/legacy_debt.md` (`#no-test-coverage`) for what this
+does and does not resolve.

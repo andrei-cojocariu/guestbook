@@ -5,7 +5,8 @@ implemented_by:
   - application/models/Guestbook_messages.php
   - application/views/guestbook_homepage.php
   - application/views/guestbook_components/timeline.php
-tested_by: []
+tested_by:
+  - application/tests/characterization/SignAndListFlowTest.php
 ---
 
 # Feature: Render the message timeline
@@ -47,4 +48,8 @@ And only the submission form is shown
 - The post date/time is wrong for every row (`#timeline-time-bug`): the view
   calls `time($message['received_on'])`, which ignores its argument and returns
   the current time, so all rows show "now" instead of when they were posted.
-- No automated test covers this rendering (`#no-test-coverage`).
+- Both deviations above are still present — they are only *characterized*, not
+  fixed, by `application/tests/characterization/SignAndListFlowTest.php`
+  (`tsk-003`; see `characterization-baseline.md` and `legacy_debt.md`
+  `#no-test-coverage`, resolved for this flow). Hardening lands behind
+  Strangler seam STR-2 once that net stays green.

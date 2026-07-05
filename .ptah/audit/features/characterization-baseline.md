@@ -1,6 +1,6 @@
 ---
 slug: characterization-baseline
-status: planned
+status: implemented
 implemented_by:
   - application/controllers/Guestbook.php
   - application/models/Guestbook_messages.php
@@ -59,11 +59,29 @@ And the success banner is shown
 ## Scenario: Stored HTML is currently echoed unescaped (frozen insecure behavior)
 
 ```gherkin
-Given a stored message whose body contains "<script>alert('xss')</script>"
+Given a stored message whose body contains bare HTML metacharacters, e.g. Tom & Jerry said "hello" > everyone
 When I open the guestbook homepage
-Then the raw unescaped "<script>" sequence is present in the response body
+Then the raw, unescaped metacharacters are present in the response body verbatim
 # Frozen as-is: this is SEC-1. The output-encoding hardening scenario supersedes
 # this only after this net is green.
+#
+# FEEDBACK-LOOP CORRECTION (tsk-003, verified live against ci-guestbook:frozen):
+# the original "<script>alert('xss')</script>" payload is NOT reachable through
+# Guestbook::create()'s real validation pipeline -- system/core/Security.php's
+# xss_clean() (lines 486-489) rewrites any "<script...>"/"</script>" occurrence
+# to the literal text "[removed]" BEFORE strip_tags ever runs, so that exact
+# payload never reaches storage intact. This scenario is corrected to a payload
+# that genuinely survives xss_clean|strip_tags unmolested (no "<" character, so
+# none of xss_clean's tag/script detection triggers), while still
+# characterizing the same underlying defect: no output encoding at the view
+# boundary.
+#
+# RATIFIED (test-engineer-worker, 2026-07-05): independently re-verified
+# against system/core/Security.php:486-489 — any "script"/"xss" occurrence
+# inside a tag delimiter is rewritten to "[removed]" before strip_tags runs,
+# so the original literal payload is unreachable through this pipeline. The
+# substituted payload correctly characterizes #stored-xss without relying on
+# an unreachable input.
 ```
 
 ## Scenario: Timeline timestamp is the render time, not received_on (frozen bug)
@@ -79,11 +97,28 @@ And not the stored received_on value
 ## Scenario: A failed insert still reports success (frozen bug)
 
 ```gherkin
-Given persistence is induced to fail for a submission
-When I POST a valid submission to Guestbook/create
-Then the success banner is still shown
-And the user is not told the message was not stored
+Given Guestbook_messages::set_message() runs against a db collaborator whose insert() reports failure
+When set_message() completes
+Then it still returns true, exactly as it does when the insert actually succeeds
 # Frozen as-is: this is BUG-2 (#silent-insert-success). Characterized, not fixed.
+#
+# FEEDBACK-LOOP CORRECTION (tsk-003, verified live against ci-guestbook:frozen):
+# no black-box HTTP payload accepted by this schema reliably forces
+# $this->db->insert() to return FALSE -- there is no unique constraint beyond
+# the surrogate key, and an invalid-charset payload (tried first) silently
+# TRUNCATES under this container's effective sql_mode rather than erroring, so
+# the insert still "succeeds" and the original "Given persistence is induced
+# to fail for a submission [over HTTP]" framing is not reachable as literally
+# written. This scenario is corrected to exercise set_message() directly
+# against a stubbed db collaborator (the one collaborator the bug is actually
+# about), which still requires zero product-code changes.
+#
+# RATIFIED (test-engineer-worker, 2026-07-05): confirmed live — the `messages`
+# table has no unique constraint beyond its surrogate key, and an
+# invalid-charset payload truncates silently under this container's effective
+# sql_mode rather than erroring, so no black-box HTTP payload can force
+# db->insert() to return FALSE. Exercising set_message() directly against a
+# stubbed $this->db is the correct, deterministic characterization of BUG-2.
 ```
 
 ## Scenario: Validation rejects short or malformed input (current behavior)
