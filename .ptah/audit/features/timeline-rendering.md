@@ -41,15 +41,33 @@ Then no "Previous Messages" timeline section is rendered
 And only the submission form is shown
 ```
 
+## Scenario: Stored HTML metacharacters are rendered inert (STR-2, output encoding)
+
+```gherkin
+Given a message was stored whose name, email, or message body contains HTML
+  metacharacters (for example a "<script>" payload or bare "&", "\"", ">")
+When I open the guestbook homepage
+Then the timeline renders the HTML-escaped form of that data (via html_escape())
+And no raw, unescaped markup or script tag reaches the browser
+```
+
 ## Known deviations (current behavior — see legacy_debt.md)
 
-- Stored `name`, `email`, and `message` are echoed **without output encoding**
-  (`#stored-xss`), a Critical stored-XSS exposure fixed at Strangler seam STR-2.
+- **Fixed by `tsk-005` (Strangler seam STR-2):** stored `name`, `email`, and
+  `message` were previously echoed without output encoding (`#stored-xss`, a
+  Critical stored-XSS exposure). `timeline.php` now routes every echo of
+  stored user data through CodeIgniter's `html_escape()` helper
+  (`system/core/Common.php`) at the render seam. Input-side
+  `xss_clean|strip_tags` validation remains in place unchanged; the escaping
+  is defense at render, not a replacement for it.
 - The post date/time is wrong for every row (`#timeline-time-bug`): the view
   calls `time($message['received_on'])`, which ignores its argument and returns
   the current time, so all rows show "now" instead of when they were posted.
-- Both deviations above are still present — they are only *characterized*, not
-  fixed, by `application/tests/characterization/SignAndListFlowTest.php`
+  Still present; only characterized, not fixed, by this task.
+- The time-bug deviation above is still present — it is only *characterized*,
+  not fixed, by `application/tests/characterization/SignAndListFlowTest.php`
   (`tsk-003`; see `characterization-baseline.md` and `legacy_debt.md`
-  `#no-test-coverage`, resolved for this flow). Hardening lands behind
-  Strangler seam STR-2 once that net stays green.
+  `#no-test-coverage`, resolved for this flow). The stored-XSS deviation is
+  now fixed here; the characterization net's recorded assertions for
+  `#stored-xss` must be updated to the newly-escaped output as a reviewed
+  diff (flagged to the test-engineer-worker — see this task's return report).
