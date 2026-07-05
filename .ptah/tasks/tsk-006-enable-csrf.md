@@ -4,7 +4,7 @@ title: Enable CodeIgniter native CSRF protection on the create POST
 type: chore
 priority: P0-Critical
 severity: high
-status: blocked
+status: awaiting-human-merge
 depends_on: [tsk-003]
 rejection_count: 0
 source: audit/legacy_debt.md#csrf-disabled
