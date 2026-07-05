@@ -69,6 +69,29 @@
  *    not a full HTTP round-trip for this one case. It still requires zero
  *    product-code changes and zero framework internals mocked beyond the
  *    one collaborator (`$this->db`) the bug is actually about.
+ *
+ * TSK-006 RE-BASELINE (test-engineer-worker, 2026-07-05): `application/config/
+ * config.php`'s `csrf_protection` flipped from `FALSE` to `TRUE` (tsk-006).
+ * CI3's native `CI_Security::csrf_verify()` (`system/core/Security.php:206-252`)
+ * now runs on every POST, ahead of any controller/validation code, and
+ * rejects (`show_error(..., 403)`) any request whose `$_POST[csrf_test_name]`
+ * does not `hash_equals()` the `$_COOKIE[csrf_cookie_name]` pair. This flips
+ * EVERY POST-issuing case in this suite from "any POST body is accepted" to
+ * "only a POST carrying a token/cookie pair scraped from a prior GET is
+ * accepted" — per `characterization-baseline.md`'s own forward note ("This
+ * net is the gate that must be green before ... CSRF protection ... may be
+ * promoted to blocking") and `message-submission.md`'s "Known deviations"
+ * entry, both amended alongside this test to record the new, token-required
+ * baseline. `fetchCsrfPair()` (below) performs the same GET-then-scrape a
+ * real browser does (CI3's `form_open()` auto-emits the hidden field +
+ * `Set-Cookie` whenever `csrf_protection` is on — verified against
+ * `system/helpers/form_helper.php:101-134`), so every still-valid POST test
+ * case now round-trips through it before submitting. The prior scenario "A
+ * tokenless POST is currently accepted" is superseded by "A POST without a
+ * valid CSRF token is rejected" (`test_post_without_valid_csrf_token_is_rejected`)
+ * — same 1:1 scenario slot, new title/assertion matching the amended
+ * contract. Diff against the pre-tsk-006 net is CSRF-only: no other
+ * assertion in this file changed in substance.
  */
 
 class SignAndListFlowTest extends PHPUnit_Framework_TestCase
@@ -114,11 +137,13 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
     // ------------------------------------------------------------------
     public function test_valid_submission_stored_and_acknowledged()
     {
-        $response = $this->request('POST', '/Guestbook/create', array(
+        $csrf = $this->fetchCsrfPair();
+
+        $response = $this->requestWithCsrf('POST', '/Guestbook/create', array(
             'name'    => 'Ada Lovelace',
             'email'   => 'ada@example.com',
             'message' => 'Characterizing the sign flow before it changes.',
-        ));
+        ), $csrf);
 
         $this->assertSame(200, $response['status']);
         $this->assertContains('Your message has been processed', $response['body']);
@@ -135,21 +160,25 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
     }
 
     // ------------------------------------------------------------------
-    // Scenario: A tokenless POST is currently accepted (#csrf-disabled, SEC-4)
+    // Scenario: A POST without a valid CSRF token is rejected
+    // (#csrf-disabled resolved by tsk-006; supersedes the pre-tsk-006
+    // "A tokenless POST is currently accepted" baseline — see this file's
+    // TSK-006 RE-BASELINE header note and characterization-baseline.md /
+    // message-submission.md, both amended alongside this test)
     // ------------------------------------------------------------------
-    public function test_tokenless_post_currently_accepted()
+    public function test_post_without_valid_csrf_token_is_rejected()
     {
-        // csrf_protection is FALSE (application/config/config.php) and this
-        // POST deliberately includes no CSRF token field at all.
+        // csrf_protection is now TRUE (application/config/config.php,
+        // tsk-006) and this POST deliberately carries no CSRF token field
+        // and no CSRF cookie at all.
         $response = $this->request('POST', '/Guestbook/create', array(
             'name'    => 'Grace Hopper',
             'email'   => 'grace@example.com',
             'message' => 'No CSRF token accompanies this submission.',
         ));
 
-        $this->assertSame(200, $response['status']);
-        $this->assertContains('Your message has been processed', $response['body']);
-        $this->assertSame(1, $this->countMessages(), '#csrf-disabled: tokenless POST is currently accepted and stored');
+        $this->assertSame(403, $response['status'], 'tsk-006: a POST with no CSRF token/cookie pair must now be rejected');
+        $this->assertSame(0, $this->countMessages(), 'tsk-006: the rejected submission must not be stored');
     }
 
     // ------------------------------------------------------------------
@@ -159,12 +188,13 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
     public function test_stored_html_currently_unescaped()
     {
         $payload = 'Tom & Jerry said "hello" > everyone';
+        $csrf = $this->fetchCsrfPair();
 
-        $submit = $this->request('POST', '/Guestbook/create', array(
+        $submit = $this->requestWithCsrf('POST', '/Guestbook/create', array(
             'name'    => 'X & Y',
             'email'   => 'xy@example.com',
             'message' => $payload,
-        ));
+        ), $csrf);
         $this->assertSame(200, $submit['status']);
 
         $rows = $this->fetchMessages();
@@ -290,8 +320,9 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
 
         foreach ($cases as $label => $case) {
             $this->clearMessages();
+            $csrf = $this->fetchCsrfPair();
 
-            $response = $this->request('POST', '/Guestbook/create', $case['post']);
+            $response = $this->requestWithCsrf('POST', '/Guestbook/create', $case['post'], $csrf);
 
             $this->assertSame(200, $response['status'], $label);
             $this->assertSame(0, $this->countMessages(), $label . ': no row must be inserted on validation failure');
@@ -407,7 +438,7 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
      * @param string $path
      * @param array  $post
      * @param array  $extraHeaders
-     * @return array{status:int,body:string}
+     * @return array{status:int,body:string,headers:array}
      */
     private function request($method, $path, array $post = array(), array $extraHeaders = array())
     {
@@ -438,13 +469,69 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
         }
 
         $status = 0;
-        if (isset($http_response_header) && isset($http_response_header[0])) {
-            if (preg_match('#HTTP/\S+\s+(\d+)#', $http_response_header[0], $m)) {
-                $status = (int) $m[1];
-            }
+        $responseHeaders = isset($http_response_header) ? $http_response_header : array();
+        if (isset($responseHeaders[0]) && preg_match('#HTTP/\S+\s+(\d+)#', $responseHeaders[0], $m)) {
+            $status = (int) $m[1];
         }
 
-        return array('status' => $status, 'body' => $body);
+        return array('status' => $status, 'body' => $body, 'headers' => $responseHeaders);
+    }
+
+    /**
+     * Scrapes a genuine CSRF token/cookie pair the same way a real browser
+     * would: GET the homepage, read the hidden `csrf_test_name` field CI3's
+     * `form_open()` auto-emits, and the matching `csrf_cookie_name`
+     * `Set-Cookie` header CI3's `CI_Security::csrf_set_cookie()` sends on the
+     * same response (tsk-006; `system/helpers/form_helper.php:101-134`,
+     * `system/core/Security.php:262-284`). Both values originate from the
+     * same `_csrf_hash` for that request, so they match by construction.
+     *
+     * @return array{token:string,cookie:string}
+     */
+    private function fetchCsrfPair()
+    {
+        $response = $this->request('GET', '/');
+        $this->assertSame(
+            200,
+            $response['status'],
+            'characterization net: could not load the homepage to obtain a CSRF token/cookie pair'
+        );
+
+        if (!preg_match('/name="csrf_test_name"\s+value="([^"]*)"/', $response['body'], $tokenMatch)) {
+            throw new RuntimeException('characterization net: no csrf_test_name hidden field found on the homepage response');
+        }
+
+        $cookie = null;
+        foreach ($response['headers'] as $header) {
+            if (preg_match('/^Set-Cookie:\s*csrf_cookie_name=([^;]+)/i', $header, $cookieMatch)) {
+                $cookie = $cookieMatch[1];
+            }
+        }
+        if ($cookie === null) {
+            throw new RuntimeException('characterization net: no csrf_cookie_name Set-Cookie header on the homepage response');
+        }
+
+        return array('token' => $tokenMatch[1], 'cookie' => $cookie);
+    }
+
+    /**
+     * Issues a POST carrying a valid CSRF token field + matching cookie,
+     * exactly as a legitimate browser submission of `guestbook_components/
+     * form.php` would (tsk-006).
+     *
+     * @param string $method
+     * @param string $path
+     * @param array  $post
+     * @param array{token:string,cookie:string} $csrf
+     * @return array{status:int,body:string,headers:array}
+     */
+    private function requestWithCsrf($method, $path, array $post, array $csrf)
+    {
+        $post['csrf_test_name'] = $csrf['token'];
+
+        return $this->request($method, $path, $post, array(
+            'Cookie: csrf_cookie_name=' . $csrf['cookie'],
+        ));
     }
 
     private static function dbConfig()

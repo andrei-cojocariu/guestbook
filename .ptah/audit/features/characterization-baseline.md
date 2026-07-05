@@ -39,21 +39,29 @@ Zero product-code changes are made by this net (per `tsk-003`'s TAC).
 
 ```gherkin
 Given the frozen guestbook is running with an empty messages table
+And csrf_protection is enabled (tsk-006) so the request carries a valid CSRF
+    token/cookie pair scraped from a prior GET of the same form
 When I POST a valid name, email and message to Guestbook/create
 Then the response shows the "Your message has been processed" success banner
 And a matching row exists in the messages table
 And the submitted message appears in the rendered timeline
+# AMENDED (tsk-006): this scenario now requires a valid CSRF token/cookie pair
+# to reach "accepted"; prior to tsk-006 no token was required at all.
 ```
 
-## Scenario: A tokenless POST is currently accepted (frozen insecure behavior)
+## Scenario: A POST without a valid CSRF token is rejected (tsk-006 baseline)
 
 ```gherkin
-Given the frozen guestbook has csrf_protection disabled
-When I POST a valid submission to Guestbook/create with no CSRF token
-Then the request is accepted and the message is stored
-And the success banner is shown
-# Frozen as-is: this is SEC-4. The CSRF hardening scenario supersedes this only
-# after this net is green.
+Given the guestbook now has csrf_protection enabled (tsk-006)
+When I POST a valid submission to Guestbook/create with no CSRF token and no
+     CSRF cookie
+Then the request is rejected with a 403 response
+And the message is not stored
+# SUPERSEDES the prior frozen scenario "A tokenless POST is currently
+# accepted" (#csrf-disabled, SEC-4) now that tsk-006 has landed
+# csrf_protection = TRUE. A POST carrying a valid token/cookie pair still
+# stores the message per the "A valid submission is stored and acknowledged"
+# scenario above.
 ```
 
 ## Scenario: Stored HTML is currently echoed unescaped (frozen insecure behavior)
@@ -125,6 +133,8 @@ Then it still returns true, exactly as it does when the insert actually succeeds
 
 ```gherkin
 Given the frozen guestbook homepage
+And the POST carries a valid CSRF token/cookie pair (tsk-006) so CSRF
+    verification passes and CI's field validation actually runs
 When I POST a name shorter than 3 characters, or an invalid email, or a message
      shorter than 5 characters
 Then no row is inserted
@@ -152,7 +162,7 @@ Then all entries are rendered ordered by received_on descending
 | Scenario | Intended test |
 | :--- | :--- |
 | A valid submission is stored and acknowledged | `SignAndListFlowTest::test_valid_submission_stored_and_acknowledged` |
-| A tokenless POST is currently accepted | `SignAndListFlowTest::test_tokenless_post_currently_accepted` |
+| A POST without a valid CSRF token is rejected | `SignAndListFlowTest::test_post_without_valid_csrf_token_is_rejected` |
 | Stored HTML is currently echoed unescaped | `SignAndListFlowTest::test_stored_html_currently_unescaped` |
 | Timeline timestamp is the render time, not received_on | `SignAndListFlowTest::test_timeline_shows_render_time_bug` |
 | A failed insert still reports success | `SignAndListFlowTest::test_failed_insert_reports_success_bug` |
@@ -163,6 +173,9 @@ Then all entries are rendered ordered by received_on descending
 ## Notes
 
 - Frozen bugs referenced: `#timeline-time-bug` (BUG-1), `#silent-insert-success`
-  (BUG-2). Frozen security gaps: `#stored-xss` (SEC-1), `#csrf-disabled` (SEC-4).
+  (BUG-2). Frozen security gaps: `#stored-xss` (SEC-1); `#csrf-disabled` (SEC-4)
+  is **RESOLVED (tsk-006)** — see the amended scenarios above.
 - This net is the gate that must be green before *Output encoding* and *CSRF
-  protection* (standards.md) may be promoted to blocking.
+  protection* (standards.md) may be promoted to blocking. CSRF protection has
+  now landed (tsk-006): `csrf_protection = TRUE`, re-verified green against the
+  token-required baseline above; *Output encoding* (tsk-005) remains open.
