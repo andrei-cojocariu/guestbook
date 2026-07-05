@@ -88,14 +88,32 @@ and line. Severity reflects blast radius on a live deployment.
 
 ## Medium — coupling and maintainability
 
-### DEBT-1 Active Record coupling (no repository port)
+### DEBT-1 Active Record coupling — resolved for the sign/list flow (`tsk-007`)
 
-- **Where** — `application/models/Guestbook_messages.php:11-24` calls
-  `$this->db->order_by/get/insert` directly. Storage logic is welded to CI Active
-  Record; the domain cannot be tested or re-platformed in isolation.
-- **Strangler Fig** — see STR-1 below. Tracked by `tsk-007` (repository port;
-  see `DEBT-10` — the concrete `.ptah/tasks/` queue numbers this later than
-  this document's older Stage-2 sequencing prose implied).
+- **Was** — `application/models/Guestbook_messages.php:11-24` called
+  `$this->db->order_by/get/insert` directly, with no port; storage logic was
+  welded to CI Active Record and the domain could not be tested or
+  re-platformed in isolation.
+- **Resolved (tsk-007, branch `decouple/tsk-007`, commits `da4d577`/`0cbbfc5`)**
+  — a `GuestbookRepository` interface (`get_messages()`/`set_message()`,
+  names kept verbatim from the pre-refactor model) is now the only thing the
+  controller depends on; `CiActiveRecordGuestbookRepository` is the sole
+  place `$this->db` is called, and `Guestbook_messages` is a thin CI-loader
+  shim extending that adapter. Behavior-preserving: `#silent-insert-success`
+  (BUG-2) and `#model-ctor` (BUG-3) are both carried through unchanged. See
+  `files/application/models/GuestbookRepository.php.md`,
+  `files/application/models/CiActiveRecordGuestbookRepository.php.md`, and
+  `features/message-persistence.md`'s "Hardening" scenarios.
+- **Test wiring** — `application/tests/unit/GuestbookRepositoryContractTest.php`
+  is the feature's declared `tested_by` and is wired into `phpunit.xml`'s
+  `unit` testsuite (`hooks.test`); the implementing commit reports it green
+  (12/12 with the tsk-003 net) inside `ci-guestbook:frozen`. Not
+  independently re-run live during this docs-sync pass — the frozen
+  container's fixed host ports/container name were already bound by another
+  concurrent workflow's container on this shared Docker host, so a fresh
+  `docker compose run` was not attempted. Recorded as reported by the
+  implementing commit, not observed in this pass.
+- **Strangler Fig** — see STR-1 below (delivered).
 - **Anchor** — `#active-record-coupling`.
 
 ### DEBT-2 No test coverage — resolved for the sign/list flow (`tsk-003`)
@@ -338,15 +356,19 @@ and line. Severity reflects blast radius on a live deployment.
 
 ## Strangler Fig decoupling points
 
-### STR-1 GuestbookRepository port (persistence seam)
+### STR-1 GuestbookRepository port (persistence seam) — delivered (`tsk-007`)
 
-- **Current coupling** — controller/model bound to CI Active Record `$this->db`
+- **Was** — controller/model bound to CI Active Record `$this->db`
   (`Guestbook_messages.php:11,12,24`).
-- **Proposed boundary** — a `GuestbookRepository` interface with `all()` /
-  `add(entry)`; keep CI Active Record as the first adapter behind it.
-- **Migration risk** — Low/Medium. Behavior-preserving; requires DEBT-2 tests
-  green first so the swap is verifiable. Maps directly to `tsk-007` (per the
-  concrete `.ptah/tasks/` queue; gated on `tsk-003`, the characterization net).
+- **Delivered boundary** — a `GuestbookRepository` interface with
+  `get_messages()` / `set_message()` (names kept from the pre-refactor
+  model, not renamed to `all()`/`add(entry)`); `CiActiveRecordGuestbookRepository`
+  is the first (and only, so far) adapter behind it, and the sole place
+  `$this->db` is called. The controller depends only on the interface.
+- **Migration risk realized** — Low/Medium as predicted; behavior-preserving,
+  verified against the DEBT-2 (`tsk-003`) characterization net per the
+  implementing commit's own account — see DEBT-1 above for what this
+  docs-sync pass could and could not independently re-verify.
 
 ### STR-2 Output-encoding boundary (view seam)
 

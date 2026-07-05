@@ -11,7 +11,7 @@ downstream workers navigate. Stack: CodeIgniter 3.1.5 on PHP `>=5.3.7`, MySQL
 | :--- | :--- | :--- | :--- |
 | Submit a guestbook message | `features/message-submission.md` | live (+ CSRF hardening, SEC-4) | controller, form view, model, config |
 | Render the message timeline | `features/timeline-rendering.md` | live (+ output-encoding hardening, SEC-1) | controller, model, timeline view, homepage |
-| Persist guestbook messages | `features/message-persistence.md` | live (+ repository port, STR-1) | model |
+| Persist guestbook messages | `features/message-persistence.md` | live (repository port STR-1 delivered, `tsk-007`) | model, repository port + adapter |
 | Env-driven secret management | `features/secret-management.md` | planned (SEC-2/3/5) | database.php, config.php, index.php |
 | Characterization net (sign/list) | `features/characterization-baseline.md` | live (tsk-003 delivered — 8/8 tests passing against `ci-guestbook:frozen`) | controller, model, views |
 | Provision the messages schema | `features/schema-provisioning.md` | live (tsk-001 static gate + tsk-002 live-DB verification) | schema DDL, static test, frozen container |
@@ -26,6 +26,8 @@ inventions". A spam filter needs a BDD contract authored first.)
 | File | Doc | Part of |
 | :--- | :--- | :--- |
 | `application/controllers/Guestbook.php` | `files/application/controllers/Guestbook.php.md` | submission, timeline |
+| `application/models/GuestbookRepository.php` | `files/application/models/GuestbookRepository.php.md` | persistence (tsk-007 port interface) |
+| `application/models/CiActiveRecordGuestbookRepository.php` | `files/application/models/CiActiveRecordGuestbookRepository.php.md` | persistence, submission, timeline (tsk-007 CI Active Record adapter) |
 | `application/models/Guestbook_messages.php` | `files/application/models/Guestbook_messages.php.md` | persistence, submission, timeline |
 | `application/views/guestbook_homepage.php` | `files/application/views/guestbook_homepage.php.md` | submission, timeline |
 | `application/views/guestbook_components/form.php` | `files/application/views/guestbook_components/form.php.md` | submission |
@@ -44,7 +46,9 @@ inventions". A spam filter needs a BDD contract authored first.)
 | `application/tests/characterization/router.php` | `files/application/tests/characterization/router.php.md` | characterization-baseline (tsk-003 test-only `php -S` router) |
 | `application/tests/characterization/bootstrap.php` | `files/application/tests/characterization/bootstrap.php.md` | characterization-baseline (tsk-003 PHPUnit bootstrap) |
 | `application/tests/characterization/support/ModelHarness.php` | `files/application/tests/characterization/support/ModelHarness.php.md` | characterization-baseline (tsk-003 model-layer stub for BUG-2) |
-| `phpunit.xml` | `files/phpunit.xml.md` | characterization-baseline (tsk-003 wires `hooks.test` to a real suite) |
+| `application/tests/unit/GuestbookRepositoryContractTest.php` | `files/application/tests/unit/GuestbookRepositoryContractTest.php.md` | persistence (tsk-007 port contract, wired into `hooks.test`) |
+| `application/tests/unit/GuestbookRepositoryPortTest.php` | `files/application/tests/unit/GuestbookRepositoryPortTest.php.md` | persistence (tsk-007 developer safety net, not wired into `hooks.test`) |
+| `phpunit.xml` | `files/phpunit.xml.md` | characterization-baseline, persistence (tsk-003 wires `hooks.test` to the characterization suite; tsk-007 adds the `unit` testsuite for the repository-port contract) |
 
 ## Debt anchors (see legacy_debt.md)
 
@@ -58,7 +62,7 @@ inventions". A spam filter needs a BDD contract authored first.)
 | BUG-1 | `#timeline-time-bug` | High |
 | BUG-2 | `#silent-insert-success` | High |
 | BUG-3 | `#model-ctor` | High |
-| DEBT-1 | `#active-record-coupling` | Medium |
+| DEBT-1 | `#active-record-coupling` | Resolved (`tsk-007` repository port) |
 | DEBT-2 | `#no-test-coverage` | Resolved for sign/list flow (`tsk-003` characterization net, 8/8 live) |
 | DEBT-3 | `#no-reproducible-env` | Resolved (`tsk-001` + `tsk-002`) |
 | DEBT-4 | `#eol-framework` | Medium |
@@ -73,7 +77,7 @@ inventions". A spam filter needs a BDD contract authored first.)
 
 | ID | Seam | Tracked by |
 | :--- | :--- | :--- |
-| STR-1 | GuestbookRepository persistence port | `tsk-007` (Seam 1; per the concrete `.ptah/tasks/` queue — see `legacy_debt.md` DEBT-10) |
+| STR-1 | GuestbookRepository persistence port | `tsk-007` (Seam 1; delivered — see `legacy_debt.md` STR-1/DEBT-1) |
 | STR-2 | Output-encoding boundary in timeline view | Seam 2 (post-`tsk-003`, the characterization net) |
 | STR-3 | Validation/sanitization + spam-scoring service | `tsk-008` (guard) / `tsk-009` (spam feature) |
 
@@ -128,3 +132,19 @@ verified live behavior diverged from `characterization-baseline.md`'s
 original scenario wording). This is the hard prerequisite gate for `tsk-005`
 (output encoding) and `tsk-006` (CSRF), both still `blocked` pending human
 GATE 1 dispatch.
+
+`tsk-007` (repository port, STR-1) has since landed on `decouple/tsk-007`
+(commits `da4d577`/`0cbbfc5`, `.ptah/tasks/tsk-007-repository-port.md` still
+reads `status: blocked` as of this docs-sync pass — task-status bookkeeping is
+the build pipeline's job, not this KB's): the `GuestbookRepository` interface
+(`get_messages()`/`set_message()`) plus `CiActiveRecordGuestbookRepository`
+adapter isolate the domain's only Active Record access; `Guestbook.php` and
+`Guestbook_messages.php` are both repointed at the port. `#active-record-coupling`
+is resolved for this seam — see `legacy_debt.md` DEBT-1/STR-1,
+`features/message-persistence.md`'s "Hardening" scenarios, and
+`files/application/tests/unit/GuestbookRepositoryContractTest.php.md`. The
+implementing commits report the tsk-003 net plus the new contract test green
+(12/12) inside `ci-guestbook:frozen`; this docs-sync pass could not
+independently re-run `hooks.test` live (the frozen container's fixed host
+ports/name were already bound by another concurrent workflow's container on
+this shared Docker host).

@@ -16,7 +16,7 @@ through a form; entries are persisted to MySQL and rendered back as a timeline.
 | Database | MySQL via `mysqli` | server 5.x assumed | Config |
 | Front-end | Bootstrap 3, jQuery, jQuery Validate | vendored, unpinned | Heuristic |
 | Build/CSS | Sass (`sass/style.scss`) | unpinned | Heuristic |
-| Tests | PHPUnit 5.7.27 wired (`phpunit.xml`) + two standalone gate scripts | `application/tests/characterization/` (`tsk-003`), `application/tests/schema/`, `application/tests/infra/` | Source |
+| Tests | PHPUnit 5.7.27 wired (`phpunit.xml`, two testsuites) + two standalone gate scripts | `application/tests/characterization/` (`tsk-003`), `application/tests/unit/GuestbookRepositoryContractTest.php` (`tsk-007`), `application/tests/schema/`, `application/tests/infra/` | Source |
 | Dev/CI runtime | Docker (`php:5.6.40-apache` + `mysql:5.7.44`), pinned, no floating tags | `Dockerfile`, `docker-compose.yml` (`tsk-002`) | Source |
 
 ### Detection evidence
@@ -67,8 +67,12 @@ HTTP POST /Guestbook/create -> Guestbook::create() -> form_validation -> model::
 ```
 
 - **Controller** — `application/controllers/Guestbook.php` (product entry point).
-- **Model** — `application/models/Guestbook_messages.php` (CI Active Record on the
-  `messages` table).
+- **Model** — `application/models/Guestbook_messages.php` is the CI-loader entry
+  point; it extends `application/models/CiActiveRecordGuestbookRepository.php`,
+  the sole CI Active Record adapter for the `messages` table
+  (`GuestbookRepository` interface, `tsk-007`, Seam 1 / STR-1 — see
+  `legacy_debt.md` DEBT-1). The controller depends only on the
+  `GuestbookRepository` interface, never on `$this->db` directly.
 - **Views** — `application/views/guestbook_homepage.php` composes
   `guestbook_components/form.php` and `guestbook_components/timeline.php`, plus
   `template/{metadata,css,js}.php`.
@@ -85,9 +89,12 @@ HTTP POST /Guestbook/create -> Guestbook::create() -> form_validation -> model::
   the browser into `Guestbook::create()`. Validation/sanitization happens there
   via `form_validation`; there is **no output-encoding boundary** in the timeline
   view (see `legacy_debt.md`).
-- **Persistence boundary** — the controller reaches storage only through the
-  model, but the model binds directly to CI Active Record (`$this->db`), so there
-  is no swappable repository port yet.
+- **Persistence boundary** — **updated (`tsk-007`, landed):** the controller
+  reaches storage only through the `GuestbookRepository` interface
+  (`get_messages()`/`set_message()`); CI Active Record (`$this->db`) access is
+  now confined to `CiActiveRecordGuestbookRepository`, the sole adapter behind
+  the port. See `legacy_debt.md` DEBT-1 (resolved for this seam) and
+  `features/message-persistence.md`.
 
 ## Conventions observed
 
@@ -112,17 +119,27 @@ going through the interface.
 
 ### Seam 1 — GuestbookRepository persistence port (STR-1 / DEBT-1)
 
+**Delivered (`tsk-007`, landed on `decouple/tsk-007`).** Original design
+proposal below, annotated where the concrete implementation differs:
+
 - **Boundary.** A `GuestbookRepository` interface (domain-owned) with two
-  operations: `all()` (list newest-first) and `add(entry)` (persist a validated
-  submission). The controller depends on the **interface**, never on `$this->db`.
-- **First adapter.** The existing CI Active Record model
-  (`Guestbook_messages`) becomes the first `CiActiveRecordGuestbookRepository`
-  adapter behind the port. Active Record stays; it is now *swappable*.
+  operations: ~~`all()` (list newest-first) and `add(entry)` (persist a
+  validated submission)~~ delivered as `get_messages()`/`set_message()`, the
+  pre-refactor model's own names, kept verbatim so the port is strictly
+  behavior-preserving (see `.ptah/tasks/tsk-007-repository-port.md`'s
+  Execution Plan). The controller depends on the **interface**, never on
+  `$this->db`.
+- **First adapter.** The existing CI Active Record model logic moved into
+  `CiActiveRecordGuestbookRepository`, the first adapter behind the port;
+  `Guestbook_messages` is now a thin CI-loader shim extending it. Active
+  Record stays; it is now *swappable*.
 - **Rule imposed.** No `$this->db` in `application/controllers/`. Reads and writes
   route through the port only. (standards.md: *Persistence boundary*.)
 - **Rationale.** Isolates storage so it can be re-platformed and unit-tested in
   isolation; it is also the seam the spam-scoring service (STR-3) composes behind.
-- Tracked by `tsk-003`; must land **after** the characterization net (tsk-002).
+- Tracked by `tsk-007` (per the concrete `.ptah/tasks/` queue — this section's
+  `tsk-003` citation is the Stage-2/Stage-3 numbering mismatch recorded in
+  `legacy_debt.md` DEBT-10); landed after the characterization net (`tsk-003`).
 
 ### Seam 2 — Output-encoding boundary in the timeline view (STR-2 / SEC-1)
 
@@ -175,7 +192,7 @@ tsk-001 (frozen env)
    -> characterization net  [Seam-independent; freezes CURRENT behavior + bugs]
         -> Seam 2 output encoding (SEC-1)   [changes rendered bytes]
         -> Seam 3 CSRF (SEC-4)              [changes POST acceptance]
-        -> Seam 1 repository port (STR-1)   [behavior-preserving refactor; tsk-003]
+        -> Seam 1 repository port (STR-1)   [behavior-preserving refactor; tsk-007, landed]
    Seam 4 secret management (SEC-2/3)       [config/infra; no rendered-behavior
                                              change — may proceed in parallel once
                                              the frozen env resolves config from env]
