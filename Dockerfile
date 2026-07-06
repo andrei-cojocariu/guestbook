@@ -9,13 +9,14 @@
 FROM php:8.1.32-apache
 
 # --- PHP extensions the product actually requires ---------------------------
-# mysqli   -> application/config/database.php:82 'dbdriver' => 'mysqli'
-# mbstring -> CodeIgniter 3.x core string/multibyte handling (needs libonig
-#             to compile on PHP >= 7.4 images)
+# mysqli   -> the app's database driver (CI3 mysqli / CI4 MySQLi)
+# mbstring -> framework string handling (needs libonig on PHP >= 7.4 images)
+# intl     -> required by CodeIgniter 4 (MIG-07, H5 skeleton)
 # opcache  -> the Modernize performance lever (absent in the freeze)
-RUN apt-get update && apt-get install -y --no-install-recommends libonig-dev \
+# unzip + git let composer extract/fetch the CI4 framework dist archives.
+RUN apt-get update && apt-get install -y --no-install-recommends libonig-dev libicu-dev unzip git \
     && rm -rf /var/lib/apt/lists/* \
-    && docker-php-ext-install mysqli mbstring opcache
+    && docker-php-ext-install mysqli mbstring intl opcache
 
 # --- Apache: mod_rewrite, pinned per tsk-002 TAC -----------------------------
 RUN a2enmod rewrite
