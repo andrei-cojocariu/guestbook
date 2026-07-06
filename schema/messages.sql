@@ -22,8 +22,9 @@
 -- so `received_on` also carries a supporting index for that read pattern.
 --
 -- Charset/collation match the connection settings declared in
--- application/config/database.php ('char_set' => 'utf8', 'dbcollat' =>
--- 'utf8_general_ci'); no changes were needed in that file for this task.
+-- application/config/database.php ('char_set' => 'utf8mb4', 'dbcollat' =>
+-- 'utf8mb4_0900_ai_ci'; moved off the deprecated utf8/utf8mb3 alias at the
+-- MySQL 8.0 hop, PTAH MIG-05).
 --
 -- Rollback: reversible, but deliberately NOT reproduced as literal SQL text
 -- in this file (not even in a comment), so this forward-only file can never
@@ -41,4 +42,4 @@ CREATE TABLE IF NOT EXISTS messages (
     received_on DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY idx_messages_received_on (received_on)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
