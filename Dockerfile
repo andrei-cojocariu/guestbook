@@ -1,12 +1,9 @@
 # syntax=docker/dockerfile:1
 #
-# Phase 2 — Modernize (PTAH MIG-04, hop H3 — projects/guestbook2/migration/
-# ROADMAP.md in the Ptah ledger). The Phase-1 cryogenic freeze (php:5.6.40,
-# tsk-002) served its purpose: the characterization net recorded frozen
-# behavior and now guards every hop. Runtime pinned to PHP 8.1.32 — the
-# highest PHP CodeIgniter 3.1.13 supports; a bridge held only until the CI4
-# port (MIG-07..09). Exact tags, never floating.
-FROM php:8.1.32-apache
+# Phase 2 — Modernize (PTAH MIG-10, hop H6 — projects/guestbook2/migration/
+# ROADMAP.md). LTS landing: PHP 8.4 on CodeIgniter 4.7, MySQL 8.4.
+
+FROM php:8.4.8-apache
 
 # --- PHP extensions the product actually requires ---------------------------
 # mysqli   -> the app's database driver (CI3 mysqli / CI4 MySQLi)
@@ -24,6 +21,19 @@ RUN a2enmod rewrite \
     && sed -ri -e 's!/var/www/html!/var/www/html/public!g' \
         /etc/apache2/sites-available/000-default.conf /etc/apache2/conf-available/docker-php.conf 2>/dev/null \
     || sed -ri -e 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/000-default.conf
+
+# --- Response hardening (MIG-10, ZAP DAST ratchet): no version banners; a
+# baseline CSP ('unsafe-inline' is required by the theme's inline blocks);
+# headers set at the Apache layer so static asset responses are covered too.
+RUN a2enmod headers \
+    && { \
+        echo 'Header always set X-Content-Type-Options "nosniff"'; \
+        echo "Header always set Content-Security-Policy \"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'self'; form-action 'self'; base-uri 'self'\""; \
+        echo 'Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"'; \
+    } > /etc/apache2/conf-available/ptah-hardening.conf \
+    && a2enconf ptah-hardening \
+    && sed -ri 's/^ServerTokens .*/ServerTokens Prod/; s/^ServerSignature .*/ServerSignature Off/' /etc/apache2/conf-enabled/security.conf \
+    && echo 'expose_php=Off' > /usr/local/etc/php/conf.d/docker-php-hardening.ini
 
 # --- mysqli socket path, so the hardcoded 'localhost' hostname in
 # application/config/database.php:78 actually finds mysqld ------------------
@@ -57,7 +67,7 @@ RUN echo 'date.timezone=UTC' > /usr/local/etc/php/conf.d/docker-php-timezone.ini
 # QA image the frozen runtime needed. Disabled by default so the serving
 # runtime pays zero overhead; the coverage run enables it via
 # `php -d pcov.enabled=1`.
-RUN pecl install pcov-1.0.11 \
+RUN pecl install pcov-1.0.12 \
     && docker-php-ext-enable pcov \
     && echo 'pcov.enabled=0' > /usr/local/etc/php/conf.d/docker-php-ext-pcov-default.ini
 

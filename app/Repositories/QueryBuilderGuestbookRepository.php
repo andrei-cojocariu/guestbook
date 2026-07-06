@@ -17,33 +17,53 @@ use CodeIgniter\HTTP\IncomingRequest;
  */
 class QueryBuilderGuestbookRepository implements GuestbookRepository
 {
+    /** @var BaseConnection<object|resource, object|resource> */
     private BaseConnection $db;
+
     private IncomingRequest $request;
 
+    /**
+     * @param BaseConnection<object|resource, object|resource>|null $db
+     */
     public function __construct(?BaseConnection $db = null, ?IncomingRequest $request = null)
     {
-        $this->db      = $db ?? db_connect();
-        $this->request = $request ?? service('request');
+        $this->db = $db ?? db_connect();
+
+        if ($request === null) {
+            $request = service('request');
+            assert($request instanceof IncomingRequest);
+        }
+        $this->request = $request;
     }
 
     public function get_messages(): array
     {
-        return $this->db->table('messages')
+        $result = $this->db->table('messages')
             ->orderBy('received_on', 'DESC')
-            ->get()
-            ->getResultArray();
+            ->get();
+
+        return $result === false ? [] : $result->getResultArray();
     }
 
     public function set_message(): bool
     {
-        // trim + strip_tags preserve the CI3-era write shape (the old
-        // trim|...|strip_tags validation-rule side effects).
         $this->db->table('messages')->insert([
-            'name'    => strip_tags(trim((string) $this->request->getPost('name'))),
-            'email'   => strip_tags(trim((string) $this->request->getPost('email'))),
-            'message' => strip_tags(trim((string) $this->request->getPost('message'))),
+            'name'    => $this->postString('name'),
+            'email'   => $this->postString('email'),
+            'message' => $this->postString('message'),
         ]);
 
         return true;
+    }
+
+    /**
+     * trim + strip_tags preserve the CI3-era write shape (the old
+     * trim|...|strip_tags validation-rule side effects).
+     */
+    private function postString(string $key): string
+    {
+        $value = $this->request->getPost($key);
+
+        return is_string($value) ? strip_tags(trim($value)) : '';
     }
 }

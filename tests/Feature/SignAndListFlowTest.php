@@ -9,6 +9,7 @@ use CodeIgniter\Database\BaseConnection;
 use CodeIgniter\Security\Exceptions\SecurityException;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\FeatureTestTrait;
+use CodeIgniter\Test\TestResponse;
 use Config\Database;
 use Config\Filters;
 
@@ -27,6 +28,7 @@ final class SignAndListFlowTest extends CIUnitTestCase
 {
     use FeatureTestTrait;
 
+    /** @var BaseConnection<object|resource, object|resource> */
     private BaseConnection $conn;
 
     protected function setUp(): void
@@ -51,7 +53,7 @@ final class SignAndListFlowTest extends CIUnitTestCase
         Factories::injectMock('config', 'Filters', $filters);
     }
 
-    private function body($result): string
+    private function body(TestResponse $result): string
     {
         return (string) $result->response()->getBody();
     }
@@ -72,7 +74,9 @@ final class SignAndListFlowTest extends CIUnitTestCase
         $this->assertStringContainsString('Your message has been processed', $body);
         $this->assertSame(1, $this->countMessages());
 
-        $rows = $this->conn->table('messages')->get()->getResultArray();
+        $result = $this->conn->table('messages')->get();
+        $this->assertNotFalse($result);
+        $rows = $result->getResultArray();
         $this->assertSame('Ada Lovelace', $rows[0]['name']);
         $this->assertSame('ada@example.com', $rows[0]['email']);
         $this->assertSame('Characterizing the sign flow before it changes.', $rows[0]['message']);

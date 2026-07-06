@@ -45,7 +45,7 @@ class Guestbook extends BaseController
             $valid = $this->repository->set_message();
             $errors = [];
         } else {
-            $errors = $this->validator->getErrors();
+            $errors = $this->validator?->getErrors() ?? [];
         }
 
         return view('guestbook_homepage', [

@@ -78,7 +78,7 @@ class Filters extends BaseFilters
         ],
         'after' => [
             // 'honeypot',
-            // 'secureheaders',
+            'secureheaders', // MIG-10 hardening: DAST gate ratchets to fail-on-WARN
         ],
     ];
 

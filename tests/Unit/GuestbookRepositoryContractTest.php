@@ -103,6 +103,9 @@ final class GuestbookRepositoryContractTest extends CIUnitTestCase
         $double = new class ($rows) implements GuestbookRepository {
             public int $addCalls = 0;
 
+            /**
+             * @param list<array<string, mixed>> $rows
+             */
             public function __construct(private array $rows)
             {
             }

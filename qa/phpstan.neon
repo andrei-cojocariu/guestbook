@@ -1,10 +1,8 @@
-# PHPStan gate — level 5 (MIG-09 ratchet; the H5 exit target. History:
-# L0 Stabilize -> L2+51-error baseline MIG-03 -> L5 empty-baseline here).
-# L8 + strict types is the MIG-10 finish line (see the Ptah ledger,
-# projects/guestbook2/infra/qa-gates.yml). The CI3-idiom baseline died with
-# the CI4 port — ported code carries no ignore list.
+# PHPStan gate — level 8 (MIG-10, the Modernize finish line. History: L0
+# Stabilize -> L2+baseline MIG-03 -> L5 empty MIG-09 -> L8 empty here).
+
 parameters:
-    level: 5
+    level: 8
     bootstrapFiles:
         - phpstan-bootstrap.php
     scanFiles:
