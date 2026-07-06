@@ -26,11 +26,11 @@
                     </div>
                     <div class="activity">
                         <div class="user">
-                            <a href="#"><?php echo $message['name']; ?></a>
-                            <span>(<?php echo $message['email']; ?>)</span>
+                            <a href="#"><?php echo html_escape($message['name']); ?></a>
+                            <span>(<?php echo html_escape($message['email']); ?>)</span>
                         </div>
                         <p>
-                            <?php echo $message['message']; ?>
+                            <?php echo html_escape($message['message']); ?>
                         </p>
                     </div>
                 </div>
