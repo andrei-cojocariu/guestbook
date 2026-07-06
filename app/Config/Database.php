@@ -200,6 +200,15 @@ class Database extends Config
     {
         parent::__construct();
 
+        // The credential arrives as DB_PASSWORD from docker-compose.yml
+        // (sourced from the git-ignored .env). An underscore name is used
+        // deliberately: dotted env names (database.default.password) are
+        // dropped by sh-based container entrypoints and never reach PHP.
+        $password = env('DB_PASSWORD');
+        if (is_string($password) && $password !== '') {
+            $this->default['password'] = $password;
+        }
+
         // Ensure that we always set the database group to 'tests' if
         // we are currently running an automated test suite, so that
         // we don't overwrite live data on accident.

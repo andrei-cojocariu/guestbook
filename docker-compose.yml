@@ -74,11 +74,12 @@ services:
     network_mode: "service:db"
     working_dir: /var/www/html
     environment:
-      # CI4 reads this env var directly (Config\Database::$default['password']
-      # stays empty in source); value comes from the git-ignored .env at
-      # compose time — the SEC-2 credential never enters tracked code or the
-      # image (see .dockerignore).
-      database.default.password: "${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}"
+      # Consumed by Config\Database::__construct() (the password stays empty
+      # in tracked source); value comes from the git-ignored .env at compose
+      # time — the SEC-2 credential never enters tracked code or the image
+      # (see .dockerignore). Underscore name on purpose: dotted env names are
+      # dropped by sh-based container entrypoints.
+      DB_PASSWORD: "${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}"
     volumes:
       - mysqld-socket:/var/run/mysqld
 
