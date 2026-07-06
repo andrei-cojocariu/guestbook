@@ -18,8 +18,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends libonig-dev lib
     && rm -rf /var/lib/apt/lists/* \
     && docker-php-ext-install mysqli mbstring intl opcache
 
-# --- Apache: mod_rewrite, pinned per tsk-002 TAC -----------------------------
-RUN a2enmod rewrite
+# --- Apache: mod_rewrite; docroot -> public/ (CI4 front controller,
+# MIG-08 cutover — framework and app code live outside the web root) --------
+RUN a2enmod rewrite \
+    && sed -ri -e 's!/var/www/html!/var/www/html/public!g' \
+        /etc/apache2/sites-available/000-default.conf /etc/apache2/conf-available/docker-php.conf 2>/dev/null \
+    || sed -ri -e 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/000-default.conf
 
 # --- mysqli socket path, so the hardcoded 'localhost' hostname in
 # application/config/database.php:78 actually finds mysqld ------------------

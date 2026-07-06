@@ -82,5 +82,7 @@ class Security extends BaseConfig
      *
      * @see https://codeigniter4.github.io/userguide/libraries/security.html#redirection-on-failure
      */
-    public bool $redirect = (ENVIRONMENT === 'production');
+    // Reject hard (403 SecurityException), never silently redirect back —
+    // preserves the CI3-era GB2-02 contract the characterization net pins.
+    public bool $redirect = false;
 }
