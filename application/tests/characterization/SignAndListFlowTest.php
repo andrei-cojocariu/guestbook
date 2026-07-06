@@ -187,39 +187,30 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
         );
     }
 
-    // ------------------------------------------------------------------
-    // Scenario: Timeline timestamp is the render time, not received_on
-    // (#timeline-time-bug, BUG-1)
-    // ------------------------------------------------------------------
-    public function test_timeline_shows_render_time_bug()
+    // Scenario: Timeline shows received_on, not the render time (GB2-03, resolves #timeline-time-bug / BUG-1)
+    public function test_timeline_shows_received_on()
     {
         $past = date('Y-m-d H:i:s', strtotime('2019-03-14 09:26:00'));
         $this->seedMessage('Time Traveler', 'time@example.com', 'Stamped in the past on purpose.', $past);
 
-        $before = time();
         $response = $this->request('GET', '/');
-        $after = time();
-
         $this->assertSame(200, $response['status']);
 
         $expectedPastDate = date('d-m-y', strtotime($past));
-        $this->assertNotContains(
+        $this->assertContains(
             $expectedPastDate,
             $response['body'],
-            '#timeline-time-bug: the true received_on date must NOT appear'
+            'GB2-03: the message received_on date must be rendered'
         );
 
-        $renderedNow = false;
-        for ($t = $before; $t <= $after; $t++) {
-            if (strpos($response['body'], date('d-m-y', $t)) !== false) {
-                $renderedNow = true;
-                break;
-            }
+        $today = date('d-m-y');
+        if ($today !== $expectedPastDate) {
+            $this->assertNotContains(
+                $today,
+                $response['body'],
+                'GB2-03: the render-time date must not replace received_on'
+            );
         }
-        $this->assertTrue(
-            $renderedNow,
-            '#timeline-time-bug: rendered date must be the render-time date, not received_on'
-        );
     }
 
     // ------------------------------------------------------------------
