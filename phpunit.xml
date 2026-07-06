@@ -1,29 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  tsk-003 characterization net.
+  tsk-003 characterization net, ported to PHPUnit 9.6 (PTAH MIG-03, hop H2).
 
   Consumed by `hooks.test` (.ptah/ptah.yaml): `php vendor/bin/phpunit` runs
-  INSIDE the frozen `ci-guestbook:frozen` container (PHPUnit 5.7.27, the last
-  PHPUnit 5.x release supporting PHP 5.6, see Dockerfile), so this file and
-  every suite it points at must stay compatible with PHPUnit 5.7's XML schema
-  (no PHPUnit 6+/9+ only attributes) and PHP 5.6 syntax (DEBT-8,
-  .ptah/audit/legacy_debt.md).
+  inside the app container (PHPUnit 9.6 phar + PCOV coverage driver, see
+  Dockerfile). DEBT-8's PHP 5.6/PHPUnit 5.7 ceiling was retired by MIG-02/03.
+  The convert* attributes are kept deliberately: notices/warnings still fail
+  the characterization suite, same semantics as the original net.
 
-  Presence of this file (plus vendor/bin/phpunit being executable) is exactly
-  what flips hooks.test from its prior "PENDING, no suite wired yet" stub
-  (see the tsk-002 fix, commit 76e7206) to actually invoking PHPUnit.
+  The "unit" testsuite stays pointed at the single `<file>`
+  `GuestbookRepositoryContractTest.php`: `application/tests/unit` also holds
+  `GuestbookRepositoryPortTest.php`, a standalone PHPUnit-free script
+  (procedural, calls `exit()`) that a `<directory suffix="Test.php">` glob
+  would require and thereby abort the whole run.
 
-  tsk-007 (repository port, STR-1) adds the "unit" testsuite below, pointed
-  at the single `<file>` `GuestbookRepositoryContractTest.php` rather than
-  the whole `application/tests/unit` directory: that directory also holds
-  `GuestbookRepositoryPortTest.php`, the software-developer-worker's own
-  standalone, PHPUnit-free script (procedural body, calls `exit()` at the
-  end) — it is explicitly documented as NOT wired into `hooks.test` and MUST
-  NOT be swept in by a `<directory suffix="Test.php">` glob, which would
-  `require` it and abort the whole PHPUnit run via its own `exit()` call.
-  Reuses the characterization suite's own bootstrap (defines
-  PTAH_CHARACTERIZATION_ROOT only) so both suites resolve the project root
-  identically.
+  <coverage> drives `- -coverage-text` for the ratcheted coverage gate
+  (infra/qa-gates.yml in the Ptah ledger): owned application/ code only,
+  tests excluded.
 -->
 <phpunit bootstrap="application/tests/characterization/bootstrap.php"
          colors="false"
@@ -39,4 +32,13 @@
             <file>application/tests/unit/GuestbookRepositoryContractTest.php</file>
         </testsuite>
     </testsuites>
+    <coverage>
+        <include>
+            <directory suffix=".php">application</directory>
+        </include>
+        <exclude>
+            <directory>application/tests</directory>
+            <directory>application/views/errors</directory>
+        </exclude>
+    </coverage>
 </phpunit>

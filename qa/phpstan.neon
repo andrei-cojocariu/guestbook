@@ -1,0 +1,17 @@
+# PHPStan gate — level 2 (MIG-03 ratchet; L0 was the Stabilize baseline).
+# The baseline pins the 51 pre-existing CI3-idiom errors (view-extracted
+# variables, $this in views, dynamic controller properties); only NEW errors
+# fail the gate. The baseline shrinks structurally at the CI4 port (MIG-08/09)
+# and must reach empty + level 8 at MIG-10 (see the Ptah ledger,
+# projects/guestbook2/infra/qa-gates.yml).
+includes:
+    - phpstan-baseline.neon
+
+parameters:
+    level: 2
+    paths:
+        - %currentWorkingDirectory%/application
+    excludePaths:
+        - %currentWorkingDirectory%/application/tests/*
+    scanDirectories:
+        - %currentWorkingDirectory%/system

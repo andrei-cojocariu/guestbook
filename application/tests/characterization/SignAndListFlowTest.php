@@ -71,7 +71,7 @@
  *    one collaborator (`$this->db`) the bug is actually about.
  */
 
-class SignAndListFlowTest extends PHPUnit_Framework_TestCase
+class SignAndListFlowTest extends \PHPUnit\Framework\TestCase
 {
     /** @var resource|null */
     private static $serverProcess;
@@ -86,14 +86,14 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
     /** @var mysqli */
     private static $db;
 
-    public static function setUpBeforeClass()
+    public static function setUpBeforeClass(): void
     {
         self::$baseUrl = 'http://' . self::$host . ':' . self::$port;
         self::$db = self::connectDb();
         self::startServer();
     }
 
-    public static function tearDownAfterClass()
+    public static function tearDownAfterClass(): void
     {
         self::stopServer();
 
@@ -103,7 +103,7 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
         }
     }
 
-    protected function setUp()
+    protected function setUp(): void
     {
         $this->clearMessages();
     }
@@ -121,7 +121,7 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
         ));
 
         $this->assertSame(200, $response['status']);
-        $this->assertContains('Your message has been processed', $response['body']);
+        $this->assertStringContainsString('Your message has been processed', $response['body']);
         $this->assertSame(1, $this->countMessages());
 
         $rows = $this->fetchMessages();
@@ -131,7 +131,7 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
 
         // The freshly-inserted message must also appear in the same
         // response's rendered timeline (create() re-reads get_messages()).
-        $this->assertContains('Ada Lovelace', $response['body']);
+        $this->assertStringContainsString('Ada Lovelace', $response['body']);
     }
 
     // ------------------------------------------------------------------
@@ -175,12 +175,12 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
         );
 
         $homepage = $this->request('GET', '/');
-        $this->assertNotContains(
+        $this->assertStringNotContainsString(
             $payload,
             $homepage['body'],
             'GB2-01: raw HTML metacharacters must NOT be echoed unescaped'
         );
-        $this->assertContains(
+        $this->assertStringContainsString(
             htmlspecialchars($payload, ENT_QUOTES, 'UTF-8'),
             $homepage['body'],
             'GB2-01: the timeline must render the HTML-escaped form'
@@ -197,7 +197,7 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
         $this->assertSame(200, $response['status']);
 
         $expectedPastDate = date('d-m-y', strtotime($past));
-        $this->assertContains(
+        $this->assertStringContainsString(
             $expectedPastDate,
             $response['body'],
             'GB2-03: the message received_on date must be rendered'
@@ -205,7 +205,7 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
 
         $today = date('d-m-y');
         if ($today !== $expectedPastDate) {
-            $this->assertNotContains(
+            $this->assertStringNotContainsString(
                 $today,
                 $response['body'],
                 'GB2-03: the render-time date must not replace received_on'
@@ -286,8 +286,8 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
 
             $this->assertSame(200, $response['status'], $label);
             $this->assertSame(0, $this->countMessages(), $label . ': no row must be inserted on validation failure');
-            $this->assertContains($case['errorNeedle'], $response['body'], $label . ': an inline validation error must be shown');
-            $this->assertContains('help-block has-error', $response['body'], $label . ': the error must use the controller\'s error delimiters');
+            $this->assertStringContainsString($case['errorNeedle'], $response['body'], $label . ': an inline validation error must be shown');
+            $this->assertStringContainsString('help-block has-error', $response['body'], $label . ': the error must use the controller\'s error delimiters');
         }
     }
 
@@ -300,7 +300,7 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
 
         $this->assertSame(200, $response['status']);
         $this->assertSame(0, $this->countMessages());
-        $this->assertNotContains('Previous Messages', $response['body']);
+        $this->assertStringNotContainsString('Previous Messages', $response['body']);
     }
 
     // ------------------------------------------------------------------
@@ -315,7 +315,7 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
         $response = $this->request('GET', '/');
 
         $this->assertSame(200, $response['status']);
-        $this->assertContains('Previous Messages', $response['body']);
+        $this->assertStringContainsString('Previous Messages', $response['body']);
 
         $posNewest = strpos($response['body'], 'Newest');
         $posMiddle = strpos($response['body'], 'Middle');
@@ -333,12 +333,12 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
     {
         $response = $this->request('GET', '/');
         $this->assertSame(200, $response['status']);
-        $this->assertContains(
+        $this->assertStringContainsString(
             self::$baseUrl . '/css/style.css',
             $response['body'],
             'GB2-10: asset URLs must use the request origin'
         );
-        $this->assertNotContains(
+        $this->assertStringNotContainsString(
             'http://localhost/guestbook',
             $response['body'],
             'GB2-10: the hardcoded base_url must be gone'
