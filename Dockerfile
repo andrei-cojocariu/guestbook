@@ -1,25 +1,20 @@
 # syntax=docker/dockerfile:1
 #
-# Phase 1 — Cryogenic Freeze (tsk-002).
-#
-# Pins the EXACT obsolete runtime this CodeIgniter 3.1.5 monolith already runs
-# on today — no upgrades, no floating tags. Evidence: composer.json declares
-# "php": ">=5.3.7"; system/core/CodeIgniter.php:58 pins CI_VERSION '3.1.5'
-# (2017, EOL). This image exists solely so the test-engineer-worker can run
-# black-box characterization tests (tsk-003) against frozen, reproducible
-# legacy behavior — it is a baseline artifact, not a target to grow into.
-#
-# Phase 2 (LTS modernization of this runtime) is explicitly NOT this task:
-# .ptah/audit/system.md ("No framework replacement ... a runtime/framework
-# migration is out of this design's scope") and .ptah/audit/legacy_debt.md
-# (DEBT-4, "explicitly out of scope / deferred") both defer it to a future,
-# separately-scheduled initiative. Do not bump the base image tag here.
-FROM php:5.6.40-apache
+# Phase 2 — Modernize (PTAH MIG-02, hop H2 — projects/guestbook2/migration/
+# ROADMAP.md in the Ptah ledger). The Phase-1 cryogenic freeze (php:5.6.40,
+# tsk-002) served its purpose: the characterization net recorded frozen
+# behavior and now guards every hop. Runtime pinned to PHP 7.4.33 (final 7.4)
+# on CodeIgniter 3.1.13 — exact tags, never floating.
+FROM php:7.4.33-apache
 
-# --- PHP extensions the product actually requires (system.md evidence) -----
+# --- PHP extensions the product actually requires ---------------------------
 # mysqli   -> application/config/database.php:82 'dbdriver' => 'mysqli'
-# mbstring -> CodeIgniter 3.x core string/multibyte handling
-RUN docker-php-ext-install mysqli mbstring
+# mbstring -> CodeIgniter 3.x core string/multibyte handling (needs libonig
+#             to compile on PHP >= 7.4 images)
+# opcache  -> the Modernize performance lever (absent in the freeze)
+RUN apt-get update && apt-get install -y --no-install-recommends libonig-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && docker-php-ext-install mysqli mbstring opcache
 
 # --- Apache: mod_rewrite, pinned per tsk-002 TAC -----------------------------
 RUN a2enmod rewrite
