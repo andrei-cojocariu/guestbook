@@ -153,10 +153,10 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
     }
 
     // ------------------------------------------------------------------
-    // Scenario: Stored HTML is currently echoed unescaped (#stored-xss, SEC-1)
+    // Scenario: Stored HTML is escaped at output (GB2-01, resolves #stored-xss / SEC-1)
     // See the FEEDBACK-LOOP note in this file's header docblock.
     // ------------------------------------------------------------------
-    public function test_stored_html_currently_unescaped()
+    public function test_stored_html_is_escaped_in_timeline()
     {
         $payload = 'Tom & Jerry said "hello" > everyone';
 
@@ -175,15 +175,15 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
         );
 
         $homepage = $this->request('GET', '/');
-        $this->assertContains(
+        $this->assertNotContains(
             $payload,
             $homepage['body'],
-            '#stored-xss: raw HTML metacharacters are echoed with no output encoding'
+            'GB2-01: raw HTML metacharacters must NOT be echoed unescaped'
         );
-        $this->assertNotContains(
+        $this->assertContains(
             htmlspecialchars($payload, ENT_QUOTES, 'UTF-8'),
             $homepage['body'],
-            '#stored-xss: the HTML-escaped form must NOT be what is rendered'
+            'GB2-01: the timeline must render the HTML-escaped form'
         );
     }
 
