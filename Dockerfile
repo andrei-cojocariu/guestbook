@@ -1,11 +1,12 @@
 # syntax=docker/dockerfile:1
 #
-# Phase 2 — Modernize (PTAH MIG-02, hop H2 — projects/guestbook2/migration/
+# Phase 2 — Modernize (PTAH MIG-04, hop H3 — projects/guestbook2/migration/
 # ROADMAP.md in the Ptah ledger). The Phase-1 cryogenic freeze (php:5.6.40,
 # tsk-002) served its purpose: the characterization net recorded frozen
-# behavior and now guards every hop. Runtime pinned to PHP 7.4.33 (final 7.4)
-# on CodeIgniter 3.1.13 — exact tags, never floating.
-FROM php:7.4.33-apache
+# behavior and now guards every hop. Runtime pinned to PHP 8.1.32 — the
+# highest PHP CodeIgniter 3.1.13 supports; a bridge held only until the CI4
+# port (MIG-07..09). Exact tags, never floating.
+FROM php:8.1.32-apache
 
 # --- PHP extensions the product actually requires ---------------------------
 # mysqli   -> application/config/database.php:82 'dbdriver' => 'mysqli'
