@@ -1,16 +1,35 @@
 {
-	"description": "The CodeIgniter framework",
-	"name": "codeigniter/framework",
-	"type": "project",
-	"homepage": "https://codeigniter.com",
+	"name": "ptah/guestbook2",
+	"description": "Guestbook on CodeIgniter 4 (PTAH Modernize H5 port)",
 	"license": "MIT",
-	"support": {
-		"forum": "http://forum.codeigniter.com/",
-		"wiki": "https://github.com/bcit-ci/CodeIgniter/wiki",
-		"irc": "irc://irc.freenode.net/codeigniter",
-		"source": "https://github.com/bcit-ci/CodeIgniter"
-	},
+	"type": "project",
 	"require": {
-		"php": ">=7.4"
+		"php": "^8.1",
+		"codeigniter4/framework": "~4.6.0"
+	},
+	"require-dev": {
+		"phpunit/phpunit": "^10.5.16"
+	},
+	"autoload": {
+		"psr-4": {
+			"App\\": "app/",
+			"Config\\": "app/Config/"
+		}
+	},
+	"autoload-dev": {
+		"psr-4": {
+			"Tests\\": "tests/"
+		}
+	},
+	"config": {
+		"optimize-autoloader": true,
+		"platform": {
+			"php": "8.1.32"
+		},
+		"preferred-install": "dist",
+		"sort-packages": true
+	},
+	"scripts": {
+		"test": "phpunit"
 	}
 }
