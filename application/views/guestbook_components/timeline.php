@@ -20,8 +20,8 @@
                             <i class="fa fa-comment"></i>
                         </div>
                         <div class="date">
-                            <?php echo date('d-m-y', time($message['received_on'])); ?><br>
-                            <?php echo date('h:i a', time($message['received_on'])); ?>
+                            <?php echo date('d-m-y', strtotime($message['received_on'])); ?><br>
+                            <?php echo date('h:i a', strtotime($message['received_on'])); ?>
                         </div>   
                     </div>
                     <div class="activity">
