@@ -135,21 +135,21 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
     }
 
     // ------------------------------------------------------------------
-    // Scenario: A tokenless POST is currently accepted (#csrf-disabled, SEC-4)
+    // Scenario: A tokenless POST is rejected (GB2-02, resolves #csrf-disabled / SEC-4)
     // ------------------------------------------------------------------
-    public function test_tokenless_post_currently_accepted()
+    public function test_tokenless_post_is_rejected()
     {
-        // csrf_protection is FALSE (application/config/config.php) and this
-        // POST deliberately includes no CSRF token field at all.
+        // csrf_protection is now TRUE (application/config/config.php); this POST
+        // deliberately sends no CSRF token (fifth arg false), so the framework
+        // must reject it and persist nothing.
         $response = $this->request('POST', '/Guestbook/create', array(
             'name'    => 'Grace Hopper',
             'email'   => 'grace@example.com',
             'message' => 'No CSRF token accompanies this submission.',
-        ));
+        ), array(), false);
 
-        $this->assertSame(200, $response['status']);
-        $this->assertContains('Your message has been processed', $response['body']);
-        $this->assertSame(1, $this->countMessages(), '#csrf-disabled: tokenless POST is currently accepted and stored');
+        $this->assertNotSame(200, $response['status'], 'GB2-02: a tokenless POST must not be processed as a success');
+        $this->assertSame(0, $this->countMessages(), 'GB2-02: a tokenless POST must be rejected, not stored');
     }
 
     // ------------------------------------------------------------------
@@ -409,13 +409,20 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
      * @param array  $extraHeaders
      * @return array{status:int,body:string}
      */
-    private function request($method, $path, array $post = array(), array $extraHeaders = array())
+    private function request($method, $path, array $post = array(), array $extraHeaders = array(), $csrf = true)
     {
         $url = self::$baseUrl . $path;
 
         $headers = $extraHeaders;
         $content = '';
         if (strtoupper($method) === 'POST') {
+            if ($csrf) {
+                $hash = $this->csrfHash();
+                if ($hash !== '') {
+                    $post['csrf_test_name'] = $hash;
+                    $headers[] = 'Cookie: csrf_cookie_name=' . $hash;
+                }
+            }
             $content = http_build_query($post);
             $headers[] = 'Content-Type: application/x-www-form-urlencoded';
         }
@@ -445,6 +452,28 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
         }
 
         return array('status' => $status, 'body' => $body);
+    }
+
+    // GB2-02: with csrf_protection enabled, a POST must carry a matching token.
+    // Prime a GET, read the csrf cookie the app sets; in CI3 the cookie hash and
+    // the required POST token field ('csrf_test_name') share the same value, so
+    // this hash serves as both. Names mirror application/config/config.php.
+    private function csrfHash()
+    {
+        $context = stream_context_create(array(
+            'http' => array('method' => 'GET', 'ignore_errors' => true, 'timeout' => 15),
+        ));
+        @file_get_contents(self::$baseUrl . '/', false, $context);
+
+        if (isset($http_response_header) && is_array($http_response_header)) {
+            foreach ($http_response_header as $line) {
+                if (preg_match('/^Set-Cookie:\s*csrf_cookie_name=([^;\s]+)/i', $line, $m)) {
+                    return $m[1];
+                }
+            }
+        }
+
+        return '';
     }
 
     private static function dbConfig()
