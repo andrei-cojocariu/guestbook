@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Repositories;
 
-use CodeIgniter\Database\ConnectionInterface;
+use CodeIgniter\Database\BaseConnection;
 use CodeIgniter\HTTP\IncomingRequest;
 
 /**
@@ -17,10 +17,10 @@ use CodeIgniter\HTTP\IncomingRequest;
  */
 class QueryBuilderGuestbookRepository implements GuestbookRepository
 {
-    private ConnectionInterface $db;
+    private BaseConnection $db;
     private IncomingRequest $request;
 
-    public function __construct(?ConnectionInterface $db = null, ?IncomingRequest $request = null)
+    public function __construct(?BaseConnection $db = null, ?IncomingRequest $request = null)
     {
         $this->db      = $db ?? db_connect();
         $this->request = $request ?? service('request');

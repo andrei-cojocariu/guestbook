@@ -1,44 +1,43 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  tsk-003 characterization net, ported to PHPUnit 9.6 (PTAH MIG-03, hop H2).
+  Characterization + unit net, ported to CI4 / PHPUnit 10 (PTAH MIG-09,
+  hop H5). Runs INSIDE the app container against the SAME live MySQL the app
+  serves from: `php vendor/bin/phpunit` (hooks.test unchanged).
 
-  Consumed by `hooks.test` (.ptah/ptah.yaml): `php vendor/bin/phpunit` runs
-  inside the app container (PHPUnit 9.6 phar + PCOV coverage driver, see
-  Dockerfile). DEBT-8's PHP 5.6/PHPUnit 5.7 ceiling was retired by MIG-02/03.
-  The convert* attributes are kept deliberately: notices/warnings still fail
-  the characterization suite, same semantics as the original net.
+  Feature tests exercise the full framework in-process (FeatureTestTrait),
+  which is what finally makes the line-coverage gate meaningful — the CI3-era
+  suite drove a separate php -S process, invisible to the coverage driver.
 
-  The "unit" testsuite stays pointed at the single `<file>`
-  `GuestbookRepositoryContractTest.php`: `application/tests/unit` also holds
-  `GuestbookRepositoryPortTest.php`, a standalone PHPUnit-free script
-  (procedural, calls `exit()`) that a `<directory suffix="Test.php">` glob
-  would require and thereby abort the whole run.
-
-  <coverage> drives `- -coverage-text` for the ratcheted coverage gate
-  (infra/qa-gates.yml in the Ptah ledger): owned application/ code only,
-  tests excluded.
+  <source> scopes coverage to the OWNED domain surface (controller,
+  repositories, views); app/Config is generated framework scaffolding and
+  app/Views/errors ships with the appstarter.
 -->
-<phpunit bootstrap="application/tests/characterization/bootstrap.php"
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/codeigniter4/framework/system/Test/bootstrap.php"
          colors="false"
-         stopOnFailure="false"
-         convertErrorsToExceptions="true"
-         convertNoticesToExceptions="true"
-         convertWarningsToExceptions="true">
+         cacheDirectory="writable/.phpunit.cache"
+         failOnWarning="true">
     <testsuites>
-        <testsuite name="characterization">
-            <directory suffix="Test.php">application/tests/characterization</directory>
+        <testsuite name="feature">
+            <directory>tests/Feature</directory>
         </testsuite>
         <testsuite name="unit">
-            <file>application/tests/unit/GuestbookRepositoryContractTest.php</file>
+            <directory>tests/Unit</directory>
         </testsuite>
     </testsuites>
-    <coverage>
+    <source>
         <include>
-            <directory suffix=".php">application</directory>
+            <directory suffix=".php">app/Controllers</directory>
+            <directory suffix=".php">app/Repositories</directory>
+            <directory suffix=".php">app/Views</directory>
         </include>
         <exclude>
-            <directory>application/tests</directory>
-            <directory>application/views/errors</directory>
+            <directory>app/Views/errors</directory>
         </exclude>
-    </coverage>
+    </source>
+    <php>
+        <server name="app.baseURL" value="http://localhost:8080/"/>
+        <server name="CI_ENVIRONMENT" value="testing"/>
+    </php>
 </phpunit>
