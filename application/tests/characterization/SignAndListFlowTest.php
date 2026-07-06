@@ -328,6 +328,23 @@ class SignAndListFlowTest extends PHPUnit_Framework_TestCase
         $this->assertLessThan($posOldest, $posMiddle, 'Middle must render before Oldest');
     }
 
+    // Scenario: Assets resolve to the request origin, not a hardcoded host (GB2-10)
+    public function test_assets_resolve_to_request_origin()
+    {
+        $response = $this->request('GET', '/');
+        $this->assertSame(200, $response['status']);
+        $this->assertContains(
+            self::$baseUrl . '/css/style.css',
+            $response['body'],
+            'GB2-10: asset URLs must use the request origin'
+        );
+        $this->assertNotContains(
+            'http://localhost/guestbook',
+            $response['body'],
+            'GB2-10: the hardcoded base_url must be gone'
+        );
+    }
+
     // ==================================================================
     // Infrastructure: real HTTP server (php -S) + real mysqli connection.
     // No product code is touched or executed beyond genuine HTTP/DB I/O.
