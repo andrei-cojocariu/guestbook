@@ -65,25 +65,16 @@ RUN pecl install pcov-1.0.11 \
 # protocol is dead (DEBT-7). Pinned, never floating.
 COPY --from=composer:2.8.9 /usr/bin/composer /usr/bin/composer
 
-# --- PHPUnit: pinned as a container-level phar rather than a Composer
-# dependency (rejection-1 TAC 3 remediation) — sidesteps DEBT-7's broken
-# require-dev manifest entirely. 9.6 is the PHPUnit series spanning the
-# PHP 7.4 -> 8.1 hops (H2-H3); it moves again with the CI4 port (MIG-09).
-RUN curl -L https://phar.phpunit.de/phpunit-9.6.13.phar -o /usr/local/bin/phpunit \
-    && chmod +x /usr/local/bin/phpunit
+# PHPUnit is a Composer dev dependency since MIG-09 (the phar era ended
+# with DEBT-7): composer install below provisions vendor/bin/phpunit 10.x,
+# so hooks.test (`php vendor/bin/phpunit`) is unchanged.
 
 WORKDIR /var/www/html
 COPY . /var/www/html
 
-# DEBT-7 retired (MIG-03): the dead require-dev block (invalid
-# `mikey179/vfsStream` casing, Composer-1-only phpunit constraint) is gone
-# from composer.json — Composer 2 validates names strictly and would refuse
-# the whole manifest. The manifest declares the php platform floor only;
-# PHPUnit stays a pinned phar, exposed at vendor/bin for hooks.test.
-RUN composer install --no-interaction --no-dev --no-progress \
-    && mkdir -p vendor/bin \
-    && cp /usr/local/bin/phpunit vendor/bin/phpunit \
-    && chmod +x vendor/bin/phpunit \
+# Dev install on purpose: the harness (PHPUnit + this suite) runs inside
+# this same image (hooks.test), exactly as it has since the freeze.
+RUN composer install --no-interaction --no-progress \
     && chown -R www-data:www-data /var/www/html
 
 EXPOSE 80
