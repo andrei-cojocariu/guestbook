@@ -173,11 +173,11 @@ class Ptah_InMemoryGuestbookRepositoryDouble implements GuestbookRepository
     }
 }
 
-class GuestbookRepositoryContractTest extends PHPUnit_Framework_TestCase
+class GuestbookRepositoryContractTest extends \PHPUnit\Framework\TestCase
 {
     private $controllerSource;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         $this->controllerSource = file_get_contents(PTAH_CHARACTERIZATION_ROOT . '/application/controllers/Guestbook.php');
         $this->assertNotFalse($this->controllerSource, 'must be able to read application/controllers/Guestbook.php');
@@ -195,20 +195,20 @@ class GuestbookRepositoryContractTest extends PHPUnit_Framework_TestCase
     // ------------------------------------------------------------------
     public function test_controller_adds_via_port()
     {
-        $this->assertContains(
+        $this->assertStringContainsString(
             'GuestbookRepository',
             $this->controllerSource,
             'the controller must declare a dependency on the GuestbookRepository interface'
         );
 
-        $this->assertNotContains(
+        $this->assertStringNotContainsString(
             '->db',
             $this->controllerSource,
             'no $this->db call may be made from the controller — Active Record access is confined to the adapter'
         );
 
         $createBody = $this->extractMethodBody('create');
-        $this->assertContains(
+        $this->assertStringContainsString(
             '$this->repository->set_message()',
             $createBody,
             'create() must persist the validated submission by calling through the GuestbookRepository port ' .
@@ -216,7 +216,7 @@ class GuestbookRepositoryContractTest extends PHPUnit_Framework_TestCase
             '.ptah/tasks/tsk-007-repository-port.md\'s execution plan — see this test\'s class docblock and this ' .
             'task\'s return report for the add()/set_message() naming note)'
         );
-        $this->assertNotContains(
+        $this->assertStringNotContainsString(
             'CiActiveRecordGuestbookRepository',
             $createBody,
             'create() must depend only on the GuestbookRepository interface, never name the concrete adapter class'
@@ -236,13 +236,13 @@ class GuestbookRepositoryContractTest extends PHPUnit_Framework_TestCase
     public function test_controller_lists_via_port()
     {
         $indexBody = $this->extractMethodBody('index');
-        $this->assertContains(
+        $this->assertStringContainsString(
             '$this->repository->get_messages()',
             $indexBody,
             'index() must obtain the message list by calling through the GuestbookRepository port ' .
             '(get_messages() is this codebase\'s pre-existing name for the port\'s list operation)'
         );
-        $this->assertNotContains(
+        $this->assertStringNotContainsString(
             'CiActiveRecordGuestbookRepository',
             $indexBody,
             'index() must depend only on the GuestbookRepository interface, never name the concrete adapter class'
@@ -341,9 +341,9 @@ class GuestbookRepositoryContractTest extends PHPUnit_Framework_TestCase
         // drop-in replacement without a controller code change.
         $indexBody = $this->extractMethodBody('index');
         $createBody = $this->extractMethodBody('create');
-        $this->assertNotContains('CiActiveRecordGuestbookRepository', $indexBody . $createBody);
-        $this->assertContains('$this->repository->get_messages()', $indexBody);
-        $this->assertContains('$this->repository->set_message()', $createBody);
+        $this->assertStringNotContainsString('CiActiveRecordGuestbookRepository', $indexBody . $createBody);
+        $this->assertStringContainsString('$this->repository->get_messages()', $indexBody);
+        $this->assertStringContainsString('$this->repository->set_message()', $createBody);
 
         // Exercising the double directly through the same two port
         // operations the controller calls proves the contract (shape/
