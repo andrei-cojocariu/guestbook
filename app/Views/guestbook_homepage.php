@@ -14,7 +14,7 @@
     <div class="wrapper">
         <h1>
             <a href="<?= site_url() ?>">
-                <img src="<?= base_url() ?>img/logo-big.png" alt="" class='retina-ready' width="59" height="49">Guest Book</a>
+                <img src="<?= base_url() ?>img/logo-big.png" alt="Guest Book logo" class='retina-ready' width="59" height="49">Guest Book</a>
         </h1>
         <div class="login-body">
 

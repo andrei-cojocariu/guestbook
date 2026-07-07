@@ -13,9 +13,5 @@
     <script src="<?php echo base_url(); ?>js/eakroko.js"></script>
     <!--[if lte IE 9]>
         <script src="<?php echo base_url(); ?>js/plugins/placeholder/jquery.placeholder.min.js"></script>
-        <script>
-        $(document).ready(function() {
-            $('input, textarea').placeholder();
-        });
-        </script>
     <![endif]-->
+    <script src="<?php echo base_url(); ?>js/guestbook-init.js"></script>
