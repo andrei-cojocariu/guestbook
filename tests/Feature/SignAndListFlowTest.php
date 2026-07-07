@@ -224,6 +224,123 @@ final class SignAndListFlowTest extends CIUnitTestCase
         }
     }
 
+    #[Test]
+    #[TestDox('Given the persistence outcome, when the page renders, then the success banner shows only on a real write and the honest error copy shows on failure (GB2-FEAT-01/02)')]
+    public function bannerReflectsPersistenceOutcome(): void
+    {
+        helper('form');
+
+        $persisted = (string) view('guestbook_homepage', ['messages' => [], 'valid' => true, 'errors' => []]);
+        $this->assertStringContainsString('Your message has been processed', $persisted, 'a real write shows the success banner');
+        $this->assertStringNotContainsString('could not be saved', $persisted, 'no error banner on success');
+
+        $failed = (string) view('guestbook_homepage', ['messages' => [], 'valid' => false, 'errors' => []]);
+        $this->assertStringContainsString(
+            'Your message could not be saved. Please try again.',
+            $failed,
+            'GB2-FEAT-01/02: a failed write shows the honest error copy',
+        );
+        $this->assertStringNotContainsString('has been processed', $failed, 'no success banner on failure');
+
+        // Before any submission (valid is null), neither banner is shown.
+        $neutral = (string) view('guestbook_homepage', ['messages' => [], 'valid' => null, 'errors' => []]);
+        $this->assertStringNotContainsString('has been processed', $neutral);
+        $this->assertStringNotContainsString('could not be saved', $neutral);
+    }
+
+    #[Test]
+    #[TestDox("Given the homepage response, when its headers are read, then a Content-Security-Policy pins script-src to 'self' with no unsafe-inline (GB2-FEAT-04)")]
+    public function responseCarriesHardenedCspHeader(): void
+    {
+        $result = $this->get('/');
+        $result->assertStatus(200);
+
+        // In-process feature requests return the response WITHOUT the send()
+        // step, which is where the framework builds the CSP header. Run that
+        // exact step here so we assert the header production would emit.
+        $csp = service('csp');
+        $this->assertTrue($csp->enabled(), 'CSP must be enabled (App::$CSPEnabled = true)');
+
+        $response = $result->response();
+        $csp->finalize($response);
+
+        $header = $response->getHeaderLine('Content-Security-Policy');
+        $this->assertNotSame('', $header, 'the response must carry a Content-Security-Policy header');
+        $this->assertMatchesRegularExpression("/script-src[^;]*'self'/", $header, "script-src must allow 'self'");
+        $this->assertMatchesRegularExpression("/default-src[^;]*'self'/", $header, "default-src must allow 'self'");
+        $this->assertMatchesRegularExpression("/style-src[^;]*'self'/", $header, "style-src must allow 'self'");
+        $this->assertStringNotContainsString("'unsafe-inline'", $header, "GB2-FEAT-04: no 'unsafe-inline' may weaken the policy");
+    }
+
+    #[Test]
+    #[TestDox('Given the homepage markup, when it renders, then the logo has alt text, form inputs have matching labels, and pinch-zoom is enabled (GB2-FEAT-03)')]
+    public function homepageMarkupIsAccessible(): void
+    {
+        $body = $this->body($this->get('/'));
+
+        // The logo carries non-empty alt text.
+        $this->assertMatchesRegularExpression(
+            '/<img[^>]*\balt="[^"]+"[^>]*>/',
+            $body,
+            'GB2-FEAT-03: the logo image must have non-empty alt text',
+        );
+
+        // Every form field has a <label for> that matches its input id.
+        foreach (['name', 'email', 'message'] as $field) {
+            $this->assertMatchesRegularExpression(
+                '/<label[^>]*\bfor="' . $field . '"/',
+                $body,
+                "GB2-FEAT-03: the {$field} field must have a matching <label for>",
+            );
+            $this->assertStringContainsString('id="' . $field . '"', $body, "GB2-FEAT-03: the {$field} input must carry the label's id");
+        }
+
+        // Pinch-zoom stays available — the viewport must not disable scaling.
+        $this->assertStringNotContainsString('user-scalable=no', $body, 'GB2-FEAT-03: pinch-zoom must remain enabled');
+        $this->assertStringNotContainsString('maximum-scale=1', $body, 'GB2-FEAT-03: the viewport must not cap zoom');
+    }
+
+    #[Test]
+    #[TestDox('Given the externalized init script, when the homepage renders, then it is loaded from public/ and no inline script remains (GB2-FEAT-04)')]
+    public function initScriptIsExternalized(): void
+    {
+        $body = $this->body($this->get('/'));
+
+        $this->assertMatchesRegularExpression(
+            '/<script[^>]*\bsrc="[^"]*js\/guestbook-init\.js"/',
+            $body,
+            'GB2-FEAT-04: the init logic must load from an external file',
+        );
+
+        // No inline <script> with a body — this is what lets CSP drop
+        // 'unsafe-inline' without breaking the page.
+        $this->assertDoesNotMatchRegularExpression(
+            '/<script(?![^>]*\bsrc=)[^>]*>\s*\S/',
+            $body,
+            "GB2-FEAT-04: no inline script may remain once CSP forbids 'unsafe-inline'",
+        );
+    }
+
+    #[Test]
+    #[TestDox('Given a validation failure, when the inline error renders, then it is associated to the field for assistive tech (GB2-FEAT-03)')]
+    public function validationErrorsAreAssociatedForAssistiveTech(): void
+    {
+        $this->withoutCsrfFilter();
+
+        $result = $this->post('Guestbook/create', [
+            'name'    => 'Al',
+            'email'   => 'valid@example.com',
+            'message' => 'Long enough message.',
+        ]);
+        $body = $this->body($result);
+
+        $this->assertMatchesRegularExpression(
+            '/<span[^>]*\bid="name-error"[^>]*\brole="alert"/',
+            $body,
+            'GB2-FEAT-03: the inline error must carry a unique id and role="alert"',
+        );
+    }
+
     private function seedMessage(string $name, string $email, string $message, string $receivedOn): void
     {
         $this->conn->table('messages')->insert([

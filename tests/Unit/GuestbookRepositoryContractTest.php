@@ -23,7 +23,15 @@ use PHPUnit\Framework\Attributes\TestDox;
  *   | The controller reads through the repository port    | controllerReadsViaPort |
  *   | The adapter preserves persistence behavior          | queryBuilderAdapterPreservesBehaviour |
  *   | The port contract is honored by any adapter         | adapterSubstitutionPreservesBehaviour |
- *   | BUG-2/GB2-04 stays frozen                           | setMessageReportsSuccessEvenWhenInsertFails |
+ *   | GB2-04/GB2-FEAT-01: set_message() reflects the real insert outcome | setMessageReturnsInsertOutcome |
+ *
+ * NOTE (re-baseline): the CI3-era scenario "BUG-2/GB2-04 stays frozen"
+ * asserted that a failed insert was still reported as success (the silent
+ * write-loss). GB2-FEAT-01 intentionally reversed that — set_message() now
+ * returns the real insert result — so the obsolete frozen assertion is
+ * re-baselined to the correct behaviour below (Characterization Baseline
+ * Dogma: a legitimately obsolete assertion, re-baselined with the reason
+ * logged, not weakened).
  */
 #[CoversClass(QueryBuilderGuestbookRepository::class)]
 final class GuestbookRepositoryContractTest extends CIUnitTestCase
@@ -146,11 +154,33 @@ final class GuestbookRepositoryContractTest extends CIUnitTestCase
     }
 
     #[Test]
-    #[TestDox('GB2-04 stays frozen: set_message() reports success even when the insert fails (BUG-2)')]
-    public function setMessageReportsSuccessEvenWhenInsertFails(): void
+    #[TestDox('Given a submission, when the insert fails then set_message() returns false, and when it persists then it returns true (GB2-04/GB2-FEAT-01)')]
+    public function setMessageReturnsInsertOutcome(): void
+    {
+        // A genuinely failing insert must now be reported as failure — the
+        // GB2-FEAT-01 fix of the old silent write-loss (was: return true).
+        $this->assertFalse(
+            $this->adapterWithInsertResult(false)->set_message(),
+            'GB2-FEAT-01: a failed insert must report failure, not success',
+        );
+
+        // A persisted insert reports success, so the honest success banner
+        // only ever shows on a real write.
+        $this->assertTrue(
+            $this->adapterWithInsertResult(true)->set_message(),
+            'GB2-FEAT-01: a persisted insert reports success',
+        );
+    }
+
+    /**
+     * Builds the query-builder adapter over a mocked insert with a fixed
+     * outcome — the same test-double seam the frozen test used, expectation
+     * flipped to the real insert result.
+     */
+    private function adapterWithInsertResult(bool $insertResult): QueryBuilderGuestbookRepository
     {
         $builder = $this->createMock(BaseBuilder::class);
-        $builder->method('insert')->willReturn(false);
+        $builder->method('insert')->willReturn($insertResult);
 
         $db = $this->createMock(BaseConnection::class);
         $db->method('table')->willReturn($builder);
@@ -158,8 +188,6 @@ final class GuestbookRepositoryContractTest extends CIUnitTestCase
         $request = $this->createMock(IncomingRequest::class);
         $request->method('getPost')->willReturn('x');
 
-        $adapter = new QueryBuilderGuestbookRepository($db, $request);
-
-        $this->assertTrue($adapter->set_message(), 'GB2-04 stays frozen: the failed insert is still reported as success');
+        return new QueryBuilderGuestbookRepository($db, $request);
     }
 }
