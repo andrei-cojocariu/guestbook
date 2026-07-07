@@ -23,12 +23,14 @@ RUN a2enmod rewrite \
     || sed -ri -e 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/000-default.conf
 
 # --- Response hardening (MIG-10, ZAP DAST ratchet): no version banners; a
-# baseline CSP ('unsafe-inline' is required by the theme's inline blocks);
-# headers set at the Apache layer so static asset responses are covered too.
+# CSP at the Apache layer so static asset responses are covered too. The theme's
+# inline script was externalized to public/js/ (GB2-FEAT-04), so 'unsafe-inline'
+# is no longer needed and is dropped — the served markup carries no inline
+# script/style/handler, matching the CI4 app-level policy.
 RUN a2enmod headers \
     && { \
         echo 'Header always set X-Content-Type-Options "nosniff"'; \
-        echo "Header always set Content-Security-Policy \"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'self'; form-action 'self'; base-uri 'self'\""; \
+        echo "Header always set Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-ancestors 'self'; form-action 'self'; base-uri 'self'; object-src 'none'\""; \
         echo 'Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"'; \
     } > /etc/apache2/conf-available/ptah-hardening.conf \
     && a2enconf ptah-hardening \
