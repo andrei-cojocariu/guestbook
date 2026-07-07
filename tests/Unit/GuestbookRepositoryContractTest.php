@@ -11,17 +11,21 @@ use CodeIgniter\Database\BaseConnection;
 use CodeIgniter\Database\ResultInterface;
 use CodeIgniter\HTTP\IncomingRequest;
 use CodeIgniter\Test\CIUnitTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\TestDox;
 
 /**
  * The STR-1 port-contract suite, carried across the CI4 port (PTAH MIG-09).
  * Same scenario mapping as the CI3-era file:
  *
- *   | The controller persists through the repository port | test_controller_adds_via_port |
- *   | The controller reads through the repository port    | test_controller_lists_via_port |
- *   | The adapter preserves persistence behavior          | test_query_builder_adapter_behavior |
- *   | The port contract is honored by any adapter         | test_adapter_substitution_preserves_behavior |
- *   | BUG-2/GB2-04 stays frozen                           | test_set_message_reports_success_even_when_insert_fails |
+ *   | The controller persists through the repository port | controllerPersistsViaPort |
+ *   | The controller reads through the repository port    | controllerReadsViaPort |
+ *   | The adapter preserves persistence behavior          | queryBuilderAdapterPreservesBehaviour |
+ *   | The port contract is honored by any adapter         | adapterSubstitutionPreservesBehaviour |
+ *   | BUG-2/GB2-04 stays frozen                           | setMessageReportsSuccessEvenWhenInsertFails |
  */
+#[CoversClass(QueryBuilderGuestbookRepository::class)]
 final class GuestbookRepositoryContractTest extends CIUnitTestCase
 {
     private string $controllerSource;
@@ -34,7 +38,9 @@ final class GuestbookRepositoryContractTest extends CIUnitTestCase
         $this->controllerSource = $source;
     }
 
-    public function test_controller_adds_via_port(): void
+    #[Test]
+    #[TestDox('Given the controller, when it persists a message, then it goes through the repository port bound to the interface')]
+    public function controllerPersistsViaPort(): void
     {
         $this->assertStringContainsString('$this->repository->set_message()', $this->controllerSource);
         $this->assertStringContainsString(
@@ -46,13 +52,17 @@ final class GuestbookRepositoryContractTest extends CIUnitTestCase
         $this->assertStringNotContainsString('db_connect', $this->controllerSource, 'no connection access from the controller');
     }
 
-    public function test_controller_lists_via_port(): void
+    #[Test]
+    #[TestDox('Given the controller, when it lists messages, then it reads through the repository port with no db property')]
+    public function controllerReadsViaPort(): void
     {
         $this->assertStringContainsString('$this->repository->get_messages()', $this->controllerSource);
         $this->assertStringNotContainsString('$this->db', $this->controllerSource, 'no database property on the controller');
     }
 
-    public function test_query_builder_adapter_behavior(): void
+    #[Test]
+    #[TestDox('Given the query-builder adapter, when it reads and writes, then it orders newest-first and trims/strips the insert shape')]
+    public function queryBuilderAdapterPreservesBehaviour(): void
     {
         $recordedInsert = null;
 
@@ -94,7 +104,9 @@ final class GuestbookRepositoryContractTest extends CIUnitTestCase
         );
     }
 
-    public function test_adapter_substitution_preserves_behavior(): void
+    #[Test]
+    #[TestDox('Given any adapter satisfying the port, when it is substituted, then the read/write contract still holds')]
+    public function adapterSubstitutionPreservesBehaviour(): void
     {
         $rows = [
             ['name' => 'A', 'email' => 'a@example.com', 'message' => 'one', 'received_on' => '2021-01-01 08:00:00'],
@@ -133,8 +145,9 @@ final class GuestbookRepositoryContractTest extends CIUnitTestCase
         );
     }
 
-    // BUG-2 / GB2-04: set_message() reports success even when the insert fails
-    public function test_set_message_reports_success_even_when_insert_fails(): void
+    #[Test]
+    #[TestDox('GB2-04 stays frozen: set_message() reports success even when the insert fails (BUG-2)')]
+    public function setMessageReportsSuccessEvenWhenInsertFails(): void
     {
         $builder = $this->createMock(BaseBuilder::class);
         $builder->method('insert')->willReturn(false);
