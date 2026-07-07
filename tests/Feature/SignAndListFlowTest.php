@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Controllers\Guestbook;
+use App\Repositories\QueryBuilderGuestbookRepository;
 use CodeIgniter\Config\Factories;
 use CodeIgniter\Database\BaseConnection;
 use CodeIgniter\Security\Exceptions\SecurityException;
@@ -12,6 +14,10 @@ use CodeIgniter\Test\FeatureTestTrait;
 use CodeIgniter\Test\TestResponse;
 use Config\Database;
 use Config\Filters;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\TestDox;
 
 /**
  * The tsk-003 characterization net, ported to CI4 in-process feature tests
@@ -24,6 +30,8 @@ use Config\Filters;
  * equivalent here pins that every referenced asset maps to a real file
  * under public/.
  */
+#[CoversClass(Guestbook::class)]
+#[CoversClass(QueryBuilderGuestbookRepository::class)]
 final class SignAndListFlowTest extends CIUnitTestCase
 {
     use FeatureTestTrait;
@@ -58,8 +66,9 @@ final class SignAndListFlowTest extends CIUnitTestCase
         return (string) $result->response()->getBody();
     }
 
-    // Scenario: A valid submission is stored and acknowledged
-    public function test_valid_submission_stored_and_acknowledged(): void
+    #[Test]
+    #[TestDox('Given a valid submission, when it is posted, then it is stored and acknowledged')]
+    public function validSubmissionIsStoredAndAcknowledged(): void
     {
         $this->withoutCsrfFilter();
 
@@ -84,8 +93,9 @@ final class SignAndListFlowTest extends CIUnitTestCase
         $this->assertStringContainsString('Ada Lovelace', $body);
     }
 
-    // Scenario: A tokenless POST is rejected (GB2-02)
-    public function test_tokenless_post_is_rejected(): void
+    #[Test]
+    #[TestDox('Given no CSRF token, when a submission is posted, then it is rejected and nothing is stored (GB2-02)')]
+    public function tokenlessPostIsRejected(): void
     {
         try {
             $result = $this->post('Guestbook/create', [
@@ -101,8 +111,9 @@ final class SignAndListFlowTest extends CIUnitTestCase
         $this->assertSame(0, $this->countMessages(), 'GB2-02: a tokenless POST must be rejected, not stored');
     }
 
-    // Scenario: Stored HTML metacharacters are escaped at render (GB2-01)
-    public function test_stored_html_is_escaped_in_timeline(): void
+    #[Test]
+    #[TestDox('Given stored HTML metacharacters, when the timeline renders, then they are escaped (GB2-01)')]
+    public function storedHtmlIsEscapedInTimeline(): void
     {
         $payload = 'Fish & "Chips" > everyone';
         $this->seedMessage('Escaper', 'esc@example.com', $payload, '2021-06-01 09:30:00');
@@ -115,8 +126,9 @@ final class SignAndListFlowTest extends CIUnitTestCase
         $this->assertStringNotContainsString($payload, $body, 'GB2-01: the raw metacharacter payload must never render');
     }
 
-    // Scenario: Timeline renders the stored received_on, not "now" (GB2-03)
-    public function test_timeline_shows_received_on(): void
+    #[Test]
+    #[TestDox('Given a stored received_on, when the timeline renders, then it shows the stored date, not "now" (GB2-03)')]
+    public function timelineShowsStoredReceivedOn(): void
     {
         $this->seedMessage('Old Timer', 'old@example.com', 'A message from the past.', '2020-02-14 08:15:00');
 
@@ -129,8 +141,9 @@ final class SignAndListFlowTest extends CIUnitTestCase
         $this->assertStringNotContainsString(date('d-m-y'), $body, 'GB2-03: "now" must not replace the stored date');
     }
 
-    // Scenario: Messages list newest first
-    public function test_messages_listed_newest_first(): void
+    #[Test]
+    #[TestDox('Given messages with different received_on, when the timeline renders, then the newest is listed first')]
+    public function messagesAreListedNewestFirst(): void
     {
         $this->seedMessage('Oldest', 'oldest@example.com', 'First message in.', '2020-01-01 08:00:00');
         $this->seedMessage('Newest', 'newest@example.com', 'Latest message in.', '2021-01-01 08:00:00');
@@ -144,8 +157,9 @@ final class SignAndListFlowTest extends CIUnitTestCase
         $this->assertLessThan($oldestPos, $newestPos, 'timeline must be received_on DESC');
     }
 
-    // Scenario: An empty timeline section is hidden entirely
-    public function test_empty_timeline_hidden(): void
+    #[Test]
+    #[TestDox('Given no messages, when the homepage renders, then the timeline section is hidden entirely')]
+    public function emptyTimelineIsHidden(): void
     {
         $result = $this->get('/');
 
@@ -153,38 +167,48 @@ final class SignAndListFlowTest extends CIUnitTestCase
         $this->assertStringNotContainsString('Previous Messages', $this->body($result));
     }
 
-    // Scenario: Invalid submissions show inline errors and store nothing
-    public function test_validation_errors_inline(): void
+    /**
+     * @param array<string, string> $post
+     */
+    #[Test]
+    #[TestDox("Given the '\$_dataName' case, when the submission is posted, then an inline error is shown and nothing is stored")]
+    #[DataProvider('provideInvalidSubmissions')]
+    public function validationErrorsAreShownInline(array $post, string $errorNeedle): void
     {
-        $cases = [
-            'short name' => [
-                'post'        => ['name' => 'Al', 'email' => 'valid@example.com', 'message' => 'Long enough message.'],
-                'errorNeedle' => 'must be at least 3 characters',
-            ],
-            'invalid email' => [
-                'post'        => ['name' => 'Valid Name', 'email' => 'not-an-email', 'message' => 'Long enough message.'],
-                'errorNeedle' => 'must contain a valid email address',
-            ],
-            'short message' => [
-                'post'        => ['name' => 'Valid Name', 'email' => 'valid@example.com', 'message' => 'Hi'],
-                'errorNeedle' => 'must be at least 5 characters',
-            ],
-        ];
+        $this->withoutCsrfFilter();
+        $result = $this->post('Guestbook/create', $post);
+        $body   = $this->body($result);
 
-        foreach ($cases as $label => $case) {
-            $this->withoutCsrfFilter();
-            $result = $this->post('Guestbook/create', $case['post']);
-            $body   = $this->body($result);
-
-            $this->assertSame(200, $result->response()->getStatusCode(), $label);
-            $this->assertSame(0, $this->countMessages(), $label . ': no row must be inserted on validation failure');
-            $this->assertStringContainsString($case['errorNeedle'], $body, $label . ': an inline validation error must be shown');
-            $this->assertStringContainsString('help-block has-error', $body, $label . ": the error must use the controller's error delimiters");
-        }
+        $this->assertSame(200, $result->response()->getStatusCode());
+        $this->assertSame(0, $this->countMessages(), 'no row must be inserted on validation failure');
+        $this->assertStringContainsString($errorNeedle, $body, 'an inline validation error must be shown');
+        $this->assertStringContainsString('help-block has-error', $body, "the error must use the controller's error delimiters");
     }
 
-    // Scenario: Every referenced asset maps to a real file under public/
-    public function test_assets_map_to_public_files(): void
+    /**
+     * @return iterable<string, array{0: array<string, string>, 1: string}>
+     */
+    public static function provideInvalidSubmissions(): iterable
+    {
+        yield 'short name' => [
+            ['name' => 'Al', 'email' => 'valid@example.com', 'message' => 'Long enough message.'],
+            'must be at least 3 characters',
+        ];
+
+        yield 'invalid email' => [
+            ['name' => 'Valid Name', 'email' => 'not-an-email', 'message' => 'Long enough message.'],
+            'must contain a valid email address',
+        ];
+
+        yield 'short message' => [
+            ['name' => 'Valid Name', 'email' => 'valid@example.com', 'message' => 'Hi'],
+            'must be at least 5 characters',
+        ];
+    }
+
+    #[Test]
+    #[TestDox('Given the rendered homepage, when its asset references are resolved, then each maps to a real file under public/ (GB2-10)')]
+    public function referencedAssetsMapToPublicFiles(): void
     {
         $body = $this->body($this->get('/'));
 

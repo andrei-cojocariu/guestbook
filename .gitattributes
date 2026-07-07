@@ -1,0 +1,5 @@
+# Normalize line endings to LF so php-cs-fixer @PSR12 (line_ending: LF) and
+# the strict-typed source are stable across Windows checkouts (core.autocrlf)
+# now that the coding-standards gate is blocking at Modernize-hardened.
+* text=auto eol=lf
+*.php text eol=lf
