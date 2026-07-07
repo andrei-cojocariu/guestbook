@@ -11,10 +11,6 @@ namespace App\Repositories;
  *
  * Method names match the pre-refactor model verbatim so the characterization
  * net stays green across framework swaps.
- *
- * Known, deliberately-frozen deviation preserved by every adapter:
- * set_message() returns true unconditionally, even when the underlying
- * insert fails (#silent-insert-success, BUG-2 / GB2-04).
  */
 interface GuestbookRepository
 {
@@ -29,7 +25,7 @@ interface GuestbookRepository
      * Persist a message built from the current request's validated POST
      * input (name, email, message); received_on is the database default.
      *
-     * @return bool Always true — see #silent-insert-success above.
+     * @return bool True when the row is persisted, false when the insert fails.
      */
     public function set_message(): bool;
 }

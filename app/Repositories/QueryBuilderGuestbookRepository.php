@@ -47,13 +47,13 @@ class QueryBuilderGuestbookRepository implements GuestbookRepository
 
     public function set_message(): bool
     {
-        $this->db->table('messages')->insert([
+        $result = $this->db->table('messages')->insert([
             'name'    => $this->postString('name'),
             'email'   => $this->postString('email'),
             'message' => $this->postString('message'),
         ]);
 
-        return true;
+        return $result !== false;
     }
 
     /**

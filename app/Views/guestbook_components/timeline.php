@@ -2,7 +2,7 @@
 <div class="box box-color box-bordered">
     <div class="box-title">
         <h3>
-            <i class="fa fa-bars"></i>
+            <i class="fa fa-bars" aria-hidden="true"></i>
             Previous Messages
         </h3>
     </div>
@@ -17,7 +17,7 @@
                 <div class="timeline-content">
                     <div class="left">
                         <div class="icon green">
-                            <i class="fa fa-comment"></i>
+                            <i class="fa fa-comment" aria-hidden="true"></i>
                         </div>
                         <div class="date">
                             <?= date('d-m-y', strtotime($message['received_on'])) ?><br>
