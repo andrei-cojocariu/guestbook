@@ -1,0 +1,18 @@
+includes:
+    - vendor/phpstan/phpstan-strict-rules/rules.neon
+
+parameters:
+    level: 9
+    phpVersion: 80408
+    paths:
+        - app
+    excludePaths:
+        - app/Views
+    bootstrapFiles:
+        - phpstan-bootstrap.php
+    scanFiles:
+        - vendor/codeigniter4/framework/system/Common.php
+    dynamicConstantNames:
+        - ENVIRONMENT
+        - CI_DEBUG
+    treatPhpDocTypesAsCertain: false
