@@ -94,6 +94,28 @@ final class SignAndListFlowTest extends CIUnitTestCase
     }
 
     #[Test]
+    #[TestDox('Given a submission padded with whitespace and HTML tags, when it is signed, then the stored fields are trimmed and tag-stripped (write-shape)')]
+    public function submissionIsStoredTrimmedAndTagStripped(): void
+    {
+        $this->withoutCsrfFilter();
+
+        $result = $this->post('Guestbook/create', [
+            'name'    => '  Ada <b>Lovelace</b>  ',
+            'email'   => 'ada@example.com',
+            'message' => '  Hello <script>alert(1)</script> there  ',
+        ]);
+
+        $result->assertStatus(200);
+        $this->assertSame(1, $this->countMessages());
+
+        $stored = $this->conn->table('messages')->get();
+        $this->assertNotFalse($stored);
+        $rows = $stored->getResultArray();
+        $this->assertSame('Ada Lovelace', $rows[0]['name'], 'the name is trimmed and tag-stripped before storage');
+        $this->assertSame('Hello alert(1) there', $rows[0]['message'], 'the message is trimmed and tag-stripped before storage');
+    }
+
+    #[Test]
     #[TestDox('Given no CSRF token, when a submission is posted, then it is rejected and nothing is stored (GB2-02)')]
     public function tokenlessPostIsRejected(): void
     {

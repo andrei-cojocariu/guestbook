@@ -22,7 +22,7 @@ class Guestbook extends BaseController
         $this->initRepository();
 
         return view('guestbook_homepage', [
-            'messages' => $this->repository->get_messages(),
+            'messages' => $this->repository->timeline(),
         ]);
     }
 
@@ -39,16 +39,25 @@ class Guestbook extends BaseController
         ];
 
         if ($this->validate($rules)) {
-            $valid = $this->repository->set_message();
+            $valid = $this->repository->signMessage(
+                $this->writeShape($this->request->getPost('name')),
+                $this->writeShape($this->request->getPost('email')),
+                $this->writeShape($this->request->getPost('message')),
+            );
             $errors = [];
         } else {
             $errors = $this->validator?->getErrors() ?? [];
         }
 
         return view('guestbook_homepage', [
-            'messages' => $this->repository->get_messages(),
+            'messages' => $this->repository->timeline(),
             'valid'    => $valid,
             'errors'   => $errors,
         ]);
+    }
+
+    private function writeShape(mixed $value): string
+    {
+        return is_string($value) ? strip_tags(trim($value)) : '';
     }
 }
