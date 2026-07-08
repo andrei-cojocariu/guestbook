@@ -1,0 +1,26 @@
+deptrac:
+  paths:
+    - ./app
+
+  layers:
+    - name: Domain
+      collectors:
+        - type: classNameRegex
+          value: '#^App\\Repositories\\GuestbookRepository$#'
+
+    - name: Infrastructure
+      collectors:
+        - type: classNameRegex
+          value: '#^App\\Repositories\\QueryBuilderGuestbookRepository$#'
+
+    - name: Delivery
+      collectors:
+        - type: classNameRegex
+          value: '#^App\\Controllers\\#'
+
+  ruleset:
+    Domain: ~
+    Infrastructure:
+      - Domain
+    Delivery:
+      - Domain

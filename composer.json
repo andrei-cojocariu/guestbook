@@ -8,6 +8,7 @@
 		"codeigniter4/framework": "~4.7.0"
 	},
 	"require-dev": {
+		"deptrac/deptrac": "3.0.0",
 		"kint-php/kint": "^6.1",
 		"phpstan/phpstan": "^1.12",
 		"phpstan/phpstan-strict-rules": "^1.6",
