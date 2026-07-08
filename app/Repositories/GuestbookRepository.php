@@ -19,13 +19,14 @@ interface GuestbookRepository
      *
      * @return list<array<string, mixed>>
      */
-    public function get_messages(): array;
+    public function timeline(): array;
 
     /**
-     * Persist a message built from the current request's validated POST
-     * input (name, email, message); received_on is the database default.
+     * Persist a signed message from already-validated fields (name, email,
+     * message); received_on is the database default. Storage-agnostic — the
+     * caller supplies the values; no request or transport state is read here.
      *
      * @return bool True when the row is persisted, false when the insert fails.
      */
-    public function set_message(): bool;
+    public function signMessage(string $name, string $email, string $message): bool;
 }
