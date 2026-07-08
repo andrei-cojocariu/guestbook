@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Repositories\GuestbookRepository;
-use App\Repositories\QueryBuilderGuestbookRepository;
 
 class Guestbook extends BaseController
 {
@@ -15,9 +14,7 @@ class Guestbook extends BaseController
 
     protected function initRepository(): void
     {
-        // Bound to the interface only; the concrete adapter is resolved
-        // once, here — behavior methods never name it (STR-1).
-        $this->repository ??= new QueryBuilderGuestbookRepository();
+        $this->repository ??= \Config\Services::guestbookRepository();
     }
 
     public function index(): string

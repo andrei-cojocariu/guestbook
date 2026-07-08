@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Config;
 
+use App\Repositories\GuestbookRepository;
+use App\Repositories\QueryBuilderGuestbookRepository;
 use CodeIgniter\Config\BaseService;
 
 /**
@@ -21,14 +23,15 @@ use CodeIgniter\Config\BaseService;
  */
 class Services extends BaseService
 {
-    /*
-     * public static function example($getShared = true)
-     * {
-     *     if ($getShared) {
-     *         return static::getSharedInstance('example');
-     *     }
-     *
-     *     return new \CodeIgniter\Example();
-     * }
-     */
+    public static function guestbookRepository(bool $getShared = true): GuestbookRepository
+    {
+        if ($getShared) {
+            $shared = static::getSharedInstance('guestbookRepository');
+            assert($shared instanceof GuestbookRepository);
+
+            return $shared;
+        }
+
+        return new QueryBuilderGuestbookRepository();
+    }
 }
