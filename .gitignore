@@ -38,3 +38,4 @@ user_guide_src/cilexer/pycilexer.egg-info/*
 # .ptah/audit/legacy_debt.md SEC-2 (live credential, rotate + purge from
 # history) and standards.md "Secret management".
 .env
+.deptrac.cache
