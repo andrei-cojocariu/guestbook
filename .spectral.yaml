@@ -1,0 +1,3 @@
+# Spectral ruleset for the OpenAPI contract gate (AWASD Bar row 5).
+# Extends the built-in OpenAPI style rules; the contract must lint ERROR-clean.
+extends: ["spectral:oas"]

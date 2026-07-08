@@ -1,0 +1,94 @@
+# Contract-first spec for guestbook2's two HTTP surfaces (AWASD Bar row 5).
+# Authored by MNN-009 from the certified behavior @ cb0eb92; committed to the
+# target and CI-validated by task ARC-05 against the live app (localhost:8080).
+# Schema language follows the ubiquitous-language glossary (BLUEPRINT.md).
+openapi: 3.1.0
+info:
+  title: Guestbook
+  version: 1.0.0
+  description: >-
+    Server-rendered guestbook: a visitor signs a message and browses the
+    newest-first timeline. Both surfaces return HTML; this contract pins
+    routes, form fields, validation rules, and security semantics.
+  contact:
+    name: PTAH factory floor
+    url: https://example.invalid/guestbook2
+  license:
+    name: Proprietary
+    url: https://example.invalid/license
+servers:
+  - url: http://localhost:8080
+    description: Frozen app under test (container guestbook-frozen-app)
+tags:
+  - name: guestbook
+    description: The two server-rendered guestbook surfaces (browse and sign).
+paths:
+  /:
+    get:
+      operationId: browseTimeline
+      summary: Homepage — sign form plus the message timeline (newest first)
+      description: >-
+        Render the homepage: the sign form (carrying a CSRF token) and the
+        newest-first message timeline. Read-only; no side effects.
+      tags: [guestbook]
+      responses:
+        "200":
+          description: >-
+            HTML page. Contains the sign form (with CSRF token) and, when
+            messages exist, the timeline ordered by received_on descending;
+            the timeline block is omitted entirely when no messages exist.
+          content:
+            text/html:
+              schema:
+                type: string
+  /Guestbook/create:
+    post:
+      operationId: signMessage
+      summary: Sign a message
+      description: >-
+        Accept a signed message from the form. Validates name (min 3), email
+        (valid), and message (min 5); requires a valid CI4 CSRF token. Always
+        re-renders HTML — success banner on a persisted insert, inline field
+        errors on invalid input, or a 403 when the CSRF token is missing or bad.
+      tags: [guestbook]
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [name, email, message, csrf_test_name]
+              properties:
+                name:
+                  type: string
+                  minLength: 3
+                  description: Visitor name (required, min 3 characters)
+                email:
+                  type: string
+                  format: email
+                  description: Visitor email (required, valid address)
+                message:
+                  type: string
+                  minLength: 5
+                  description: The message (required, min 5 characters)
+                csrf_test_name:
+                  type: string
+                  description: CI4 CSRF token emitted with the form
+      responses:
+        "200":
+          description: >-
+            HTML page re-rendered. On valid input with a successful insert:
+            success banner plus the updated timeline. On invalid input:
+            inline field errors, no message stored. On a failed insert:
+            honest failure banner (GB2-04 contract — success is never
+            reported without persistence).
+          content:
+            text/html:
+              schema:
+                type: string
+        "403":
+          description: CSRF token missing or invalid — request rejected.
+          content:
+            text/html:
+              schema:
+                type: string
