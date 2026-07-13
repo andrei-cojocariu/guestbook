@@ -39,3 +39,12 @@ user_guide_src/cilexer/pycilexer.egg-info/*
 # history) and standards.md "Secret management".
 .env
 .deptrac.cache
+
+# QA gate run artifacts (coverage floor, perf budget, ZAP DAST) — generated at
+# repo root when the gates run; the enforcement config/scripts are tracked, the
+# reports are not.
+/coverage.xml
+/coverage.txt
+/ab.txt
+/zap-baseline.md
+/zap/
