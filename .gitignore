@@ -48,3 +48,4 @@ user_guide_src/cilexer/pycilexer.egg-info/*
 /ab.txt
 /zap-baseline.md
 /zap/
+qa/zap-baseline.md
