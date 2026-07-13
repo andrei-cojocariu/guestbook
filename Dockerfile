@@ -27,11 +27,22 @@ RUN a2enmod rewrite \
 # inline script was externalized to public/js/ (GB2-FEAT-04), so 'unsafe-inline'
 # is no longer needed and is dropped — the served markup carries no inline
 # script/style/handler, matching the CI4 app-level policy.
+#
+# The two `Header unset` lines strip the EMPTY Content-Security-Policy-Report-Only
+# and Reporting-Endpoints headers CI4's CSP component emits unconditionally
+# (framework/system/HTTP/ContentSecurityPolicy.php initialises them to [] in
+# finalize() and never populates them here — reportURI/reportTo are null). An
+# empty report-only policy is inert noise that ZAP flags (10038, "CSP Report-Only
+# Header Found"); removing it lets the DAST gate promote the CSP-header rule to a
+# clean FAIL (RECOMP v3). Plain `Header unset` (not `always unset`) is required:
+# mod_headers' `always` table does not cover PHP-set response headers.
 RUN a2enmod headers \
     && { \
         echo 'Header always set X-Content-Type-Options "nosniff"'; \
         echo "Header always set Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-ancestors 'self'; form-action 'self'; base-uri 'self'; object-src 'none'\""; \
         echo 'Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"'; \
+        echo 'Header unset Content-Security-Policy-Report-Only'; \
+        echo 'Header unset Reporting-Endpoints'; \
     } > /etc/apache2/conf-available/ptah-hardening.conf \
     && a2enconf ptah-hardening \
     && sed -ri 's/^ServerTokens .*/ServerTokens Prod/; s/^ServerSignature .*/ServerSignature Off/' /etc/apache2/conf-enabled/security.conf \
